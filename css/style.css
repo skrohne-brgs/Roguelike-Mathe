@@ -78,6 +78,19 @@ small { display: block; color: var(--muted); font-size: .82rem; font-weight: nor
 .logo h1 { font-size: 2.4rem; letter-spacing: .02em; color: var(--accent2); text-shadow: 0 3px 0 #5b3a0f; margin: .2em 0; }
 .logo .sub { color: var(--muted); margin: 0; }
 
+/* ---------- Spielstände ---------- */
+.slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 900px; margin: 0 auto 8px; text-align: left; }
+.slot-card { display: flex; flex-direction: column; gap: 6px; background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius); padding: 14px; min-width: 0; }
+.slot-card.empty { border-style: dashed; background: transparent; }
+.slot-card .btn { margin-top: auto; }
+.slot-head { display: flex; justify-content: space-between; align-items: center; min-height: 36px; }
+.slot-no { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+.slot-del { background: none; border: 2px solid transparent; border-radius: 10px; font-size: 1.2rem; padding: 4px 8px; cursor: pointer; }
+.slot-del:focus-visible, .slot-del:hover { border-color: var(--line); }
+.slot-name { font-size: 1.2rem; font-weight: 800; overflow-wrap: anywhere; }
+.slot-stats { font-variant-numeric: tabular-nums; }
+.slot-card .muted { margin: 0 0 8px; }
+
 /* ---------- Karten / Auswahl ---------- */
 .cards { display: grid; gap: 12px; grid-template-columns: 1fr; margin: 8px 0 14px; }
 .cards.two { grid-template-columns: repeat(2, 1fr); }
@@ -286,6 +299,7 @@ small { display: block; color: var(--muted); font-size: .82rem; font-weight: nor
   body { font-size: 16px; }
   .cards.four, .cards.three { grid-template-columns: repeat(2, 1fr); }
   .cards.two { grid-template-columns: 1fr; }
+  .slots { grid-template-columns: 1fr; }
   .key { min-height: 50px; font-size: 1.25rem; }
   .keypad { gap: 6px; }
   .task-prompt { font-size: 1.1rem; }

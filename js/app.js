@@ -15,9 +15,35 @@
   const meta = () => Object.assign({}, DEFAULT_META, RM.store.get('rm.meta', {}));
   const saveMeta = m => RM.store.set('rm.meta', m);
 
-  let run = RM.store.get('rm.run', null);
-  if (run && (!run.v || !RM.getTopic(run.topicId))) run = null;
-  const saveRun = () => { if (run) RM.store.set('rm.run', run); };
+  // Drei Spielstände; ein belegter Platz wird nie automatisch überschrieben
+  const SLOTS = 3;
+  function loadSlots() {
+    let list = RM.store.get('rm.slots', null);
+    if (!Array.isArray(list)) {
+      list = [];
+      const old = RM.store.get('rm.run', null); // Spielstand aus der Version mit nur einem Platz übernehmen
+      if (old) list.push(old);
+      RM.store.set('rm.slots', list);
+      RM.store.remove('rm.run');
+    }
+    return Array.from({ length: SLOTS }, (_, i) => {
+      const r = list[i];
+      return r && r.v && RM.getTopic(r.topicId) ? r : null;
+    });
+  }
+  const slots = loadSlots();
+  let slot = -1;   // aktiver Spielstand
+  let run = null;  // = slots[slot], solange ein Abenteuer läuft
+  const saveRun = () => {
+    if (!run || slot < 0) return;
+    run.updatedAt = Date.now();
+    slots[slot] = run;
+    RM.store.set('rm.slots', slots);
+  };
+  function clearSlot(i) {
+    slots[i] = null;
+    RM.store.set('rm.slots', slots);
+  }
 
   let enc = null;   // aktuelle Begegnung (Kampf, Ereignisaufgabe oder Training)
   let view = { name: 'title', params: {} };
@@ -164,12 +190,11 @@
     const m = meta();
     return '<section class="screen title-screen">' +
       '<div class="logo"><div class="logo-emoji">🏰</div><h1>Die Gewölbe<br>des Pythagoras</h1><p class="sub">Ein Mathe-Roguelike</p></div>' +
+      '<h3 class="center">Spielstände</h3><div class="slots">' + slots.map(slotCard).join('') + '</div>' +
       '<div class="menu">' +
-      (run ? '<button class="btn big" data-act="continueRun">▶ Weiterspielen<small>' + esc(run.name) + ' · ' + esc(RM.getTopic(run.topicId).title) + ' · Ebene ' + (run.floor + 1) + '</small></button>' : '') +
-      '<button class="btn big ' + (run ? 'ghost' : '') + '" data-act="newRunScreen">⚔️ Neues Abenteuer</button>' +
-      '<button class="btn" data-act="go" data-to="training">🎯 Trainingsraum</button>' +
-      '<button class="btn" data-act="go" data-to="progress">📊 Mein Lernstand</button>' +
-      '<button class="btn" data-act="go" data-to="help">❔ Spielanleitung</button>' +
+      '<button class="btn ghost" data-act="go" data-to="training">🎯 Trainingsraum</button>' +
+      '<button class="btn ghost" data-act="go" data-to="progress">📊 Mein Lernstand</button>' +
+      '<button class="btn ghost" data-act="go" data-to="help">❔ Spielanleitung</button>' +
       '<button class="btn ghost small" data-act="teacherLogin">🔑 Lehrkraft</button>' +
       '</div>' +
       '<p class="muted center">⭐ ' + m.xp + ' Erfahrungspunkte · Alle Daten bleiben nur auf diesem Gerät.</p>' +
@@ -177,13 +202,46 @@
   };
   A.go = d => show(d.to);
 
-  // ================= Neuer Durchgang =================
-  let draft = null;
-  A.newRunScreen = () => {
-    if (run) return confirmBox('Du hast noch ein laufendes Abenteuer. Wenn du ein neues startest, wird es beendet.', 'abandonAndNew', 'Neues Abenteuer');
+  function slotCard(r, i) {
+    const head = '<div class="slot-head"><span class="slot-no">Spielstand ' + (i + 1) + '</span>';
+    if (!r) {
+      return '<div class="slot-card empty">' + head + '</div><p class="muted">frei</p>' +
+        '<button class="btn" data-act="newInSlot" data-i="' + i + '">⚔️ Neues Abenteuer</button></div>';
+    }
+    const c = RM.CLASSES[r.cls], tp = RM.getTopic(r.topicId);
+    return '<div class="slot-card">' + head +
+      '<button class="slot-del" data-act="deleteSlot" data-i="' + i + '" aria-label="Spielstand ' + (i + 1) + ' löschen">🗑️</button></div>' +
+      '<div class="slot-name">' + c.emoji + ' ' + esc(r.name) + '</div>' +
+      '<small>Jg. ' + tp.grade + ': ' + esc(tp.title) + ' · ' + (r.mode === 'klasse' ? 'Klassenmodus' : 'Übungsmodus') + '</small>' +
+      '<div class="slot-stats">Ebene ' + (r.floor + 1) + '/' + tp.floors.length + ' · ❤️ ' + r.hp + '/' + r.maxHp + ' · 🪙 ' + r.gold + '</div>' +
+      (r.updatedAt ? '<small>zuletzt gespielt: ' + dateStr(new Date(r.updatedAt).toISOString()) + '</small>' : '') +
+      '<button class="btn" data-act="loadSlot" data-i="' + i + '">▶ Weiterspielen</button></div>';
+  }
+  A.loadSlot = d => {
+    slot = +d.i;
+    run = slots[slot];
+    A.continueRun();
+  };
+  A.newInSlot = d => {
+    if (slots[+d.i]) return; // belegte Plätze nie überschreiben
+    slot = +d.i;
+    run = null;
     startDraft();
   };
-  A.abandonAndNew = () => { run = null; RM.store.remove('rm.run'); startDraft(); };
+  A.deleteSlot = d => {
+    const r = slots[+d.i];
+    if (!r) return;
+    confirmBox('Spielstand ' + (+d.i + 1) + ' von <b>' + esc(r.name) + '</b> (Ebene ' + (r.floor + 1) + ') wirklich löschen? Das kann nicht rückgängig gemacht werden. Erfahrung und Lernstand bleiben erhalten.',
+      'deleteSlotYes', 'Löschen', 'data-i="' + d.i + '"');
+  };
+  A.deleteSlotYes = d => {
+    clearSlot(+d.i);
+    show('title');
+    toast('Spielstand ' + (+d.i + 1) + ' wurde gelöscht.', 'good');
+  };
+
+  // ================= Neuer Durchgang =================
+  let draft = null;
   function startDraft() {
     draft = { name: meta().name || '', mode: 'klasse', topicId: RM.topics[0].id, cls: 'abenteurer', ruhe: false };
     show('newrun');
@@ -204,7 +262,7 @@
     if (draft.mode === 'uebung') ruhe = '<label class="check"><input type="checkbox" id="ruhe" ' + (draft.ruhe ? 'checked' : '') + '> Ruhemodus – ohne Zeitdruck spielen</label>';
     else if (s.zeitdruck === 'aus') ruhe = '<p class="muted">Der Ruhemodus (ohne Zeitdruck) ist auf diesem Gerät eingeschaltet.</p>';
     return '<section class="screen narrow">' +
-      '<h2>Neues Abenteuer</h2>' +
+      '<h2>Neues Abenteuer</h2><p class="muted">Wird in Spielstand ' + (slot + 1) + ' gespeichert.</p>' +
       '<label class="field">Dein Spitzname <small>(bitte nicht deinen vollständigen Namen)</small><input id="nick" maxlength="20" autocomplete="off" value="' + esc(draft.name) + '"></label>' +
       '<h3>Spielmodus</h3><div class="cards two">' +
       card('mode', 'klasse', '🏫', 'Klassenmodus', 'Im Unterricht: Analoge Quests legst du deiner Lehrkraft vor.') +
@@ -223,6 +281,7 @@
   A.startRun = () => {
     readDraft();
     if (!draft.name) { toast('Bitte gib einen Spitznamen ein.', 'bad'); return; }
+    if (slot < 0 || slots[slot]) { show('title'); return; }
     const c = RM.CLASSES[draft.cls], m = meta();
     m.name = draft.name; saveMeta(m);
     run = {
@@ -758,8 +817,8 @@
     };
     m.runs = [summary].concat(m.runs || []).slice(0, 20);
     saveMeta(m);
-    run = null; enc = null;
-    RM.store.remove('rm.run');
+    clearSlot(slot);
+    run = null; enc = null; slot = -1;
     show('runEnd', { s: summary, unlocked });
   }
 
@@ -1075,10 +1134,11 @@
     const s = settings(); s.pin = v; saveSettings(s);
     toast('Neue PIN gespeichert.', 'good');
   };
-  A.resetAll = () => confirmBox('Wirklich <b>alle</b> Spieldaten auf diesem Gerät löschen (Lernstand, Erfahrung, laufendes Abenteuer)? Die Lehrkraft-Einstellungen bleiben erhalten.', 'resetAllYes', 'Löschen');
+  A.resetAll = () => confirmBox('Wirklich <b>alle</b> Spieldaten auf diesem Gerät löschen (Lernstand, Erfahrung, alle drei Spielstände)? Die Lehrkraft-Einstellungen bleiben erhalten.', 'resetAllYes', 'Löschen');
   A.resetAllYes = () => {
-    RM.store.remove('rm.meta'); RM.store.remove('rm.run');
-    run = null; enc = null;
+    RM.store.remove('rm.meta');
+    for (let i = 0; i < SLOTS; i++) clearSlot(i);
+    run = null; enc = null; slot = -1;
     show('title');
     toast('Alle Spieldaten wurden gelöscht.', 'good');
   };
@@ -1123,7 +1183,7 @@
     '<button class="btn" data-act="closeModal">▶ Weiterspielen</button>' +
     '<button class="btn ghost" data-act="toTitle">🏠 Hauptmenü (Spielstand wird gespeichert)</button>' +
     '<button class="btn ghost" data-act="giveUp">🏳️ Abenteuer beenden</button></div>');
-  A.toTitle = () => { enc = null; show('title'); };
+  A.toTitle = () => { saveRun(); enc = null; run = null; slot = -1; show('title'); };
   A.giveUp = () => confirmBox('Abenteuer wirklich beenden? Du erhältst die Auswertung und die bisher gesammelte Erfahrung.', 'giveUpYes', 'Beenden');
   A.giveUpYes = () => finishRun(false);
 

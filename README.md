@@ -20,6 +20,10 @@ In diesem Browserspiel kämpfen Schülerinnen und Schüler nicht mit Schwertern,
 | 🏠 **Übungsmodus** | Nachlernen zu Hause | Selbstkontrolle mit Checkliste und ehrlicher Selbsteinschätzung. Keine Lehrkraft nötig, Ruhemodus wählbar. |
 | 🎯 **Trainingsraum** | Gezieltes Üben einzelner Themen | Ohne Lebenspunkte und ohne Zeitdruck, mit Lösungsweg bei Fehlern. |
 
+## Spielstände
+
+Pro Gerät gibt es **drei Spielstände**, z. B. für mehrere Schüler an einem Klassen-iPad oder für Klassen- und Übungsmodus parallel. Ein neues Abenteuer startet nur auf einem freien Platz, ein belegter Spielstand kann also nicht versehentlich überschrieben werden. Gelöscht wird ein Spielstand nur über 🗑️ und eine Bestätigung. Erfahrungspunkte und Lernstand gelten für das ganze Gerät und bleiben beim Löschen erhalten.
+
 ## Spielregeln (Kurzfassung)
 
 - **Karte:** Die Schüler wählen ihren Weg selbst. Es gibt ⚔️ Gegner, 💀 Elitegegner, ❓ Ereignisse, 🛒 Händler, 🔥 Rastplätze, 📜 Quests und 👑 Bosse. Jeder Durchgang wird neu zufällig erzeugt.
@@ -116,4 +120,5 @@ Bausteine für Aufgaben (`RM.T` in `js/topics/registry.js`):
 ```bash
 node tests/run-tests.js            # Mathe-Kern + 400 Zufallsaufgaben je Fähigkeit und Stufe
 node tests/play-test.js 3 [ordner] # spielt 3 komplette Durchgänge im Browser (Playwright)
+node tests/slot-test.js            # Spielstände: anlegen, laden, löschen, alte Spielstände übernehmen
 ```

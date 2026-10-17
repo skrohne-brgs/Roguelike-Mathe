@@ -22,8 +22,8 @@ const url = 'file://' + path.join(__dirname, '..', 'index.html');
 
   for (let r = 0; r < runs; r++) {
     const mode = r % 2 ? 'uebung' : 'klasse';
-    await click('[data-act="newRunScreen"]').catch(async () => { await click('[data-act="abandonAndNew"]'); });
-    if (await page.$('[data-act="abandonAndNew"]')) await click('[data-act="abandonAndNew"]');
+    if (!(await page.$('[data-act="newInSlot"]'))) { await click('[data-act="deleteSlot"]'); await click('[data-act="deleteSlotYes"]'); }
+    await click('[data-act="newInSlot"]');
     await page.fill('#nick', 'Testheld' + r);
     await click(`[data-act="draft"][data-v="${mode}"]`);
     if (!seen.has('newrun')) { seen.add('newrun'); await shot('01-neues-abenteuer'); }
