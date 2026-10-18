@@ -36,7 +36,14 @@ const url = 'file://' + path.join(__dirname, '..', 'index.html');
       if (v === 'runEnd') { await shot('runEnd-' + r); break; }
       if (v === 'combat') {
         const st = await page.evaluate(() => { const e = RM.debug.enc; return { state: e.state, input: e.task.input, correct: e.task.correct, sol: e.task.solutionInput, hidden: e.hidden, n: e.task.choices && e.task.choices.length }; });
-        if (st.state === 'solution') { if (!seen.has('solution')) { seen.add('solution'); await shot('kampf-loesungsweg'); } await click('[data-act="afterSolution"]'); continue; }
+        if (st.state === 'solution') {
+          if (await page.$('#simHost .sim')) {
+            await page.click('#simHost [data-sim="next"]'); await page.waitForTimeout(800);
+            const kind = await page.evaluate(() => RM.debug.enc.task.sim.type);
+            if (!seen.has('sim-' + kind)) { seen.add('sim-' + kind); await page.$eval('#simHost', el => el.scrollIntoView({ block: 'center' })); await shot('sim-' + kind); }
+          }
+          await click('[data-act="afterSolution"]'); continue;
+        }
         if (st.state !== 'ask') { await page.waitForTimeout(400); continue; }
         const right = Math.random() < +(process.env.ACC || 0.85);
         if (st.input === 'choice') {
@@ -44,19 +51,31 @@ const url = 'file://' + path.join(__dirname, '..', 'index.html');
           if (!right) { const w = [...Array(st.n).keys()].filter(k => k !== st.correct && !st.hidden.includes(k)); if (w.length) i = w[0]; }
           await click(`[data-act="choose"][data-i="${i}"]`);
         } else {
+          await page.keyboard.press('Escape');
           await page.keyboard.type(right ? st.sol : '12345');
           if (!seen.has('eingabe-' + st.input)) { seen.add('eingabe-' + st.input); await shot('kampf-eingabe-' + st.input); }
           await page.keyboard.press('Enter');
           if (!right) {
             await page.waitForTimeout(50);
+            await page.waitForTimeout(250);
             if (!seen.has('falsch')) { seen.add('falsch'); await shot('kampf-falsch'); }
-            for (let k = 0; k < 6; k++) await page.keyboard.press('Backspace');
           }
         }
-        await page.waitForTimeout(right ? 1400 : 100);
+        if (right && !seen.has('rune')) { await page.waitForTimeout(350); seen.add('rune'); await shot('kampf-rune'); }
+        await page.waitForTimeout(right ? 1500 : 900);
         continue;
       }
-      if (v === 'map') { const nodes = await page.$$('.node.available'); await nodes[Math.floor(Math.random() * nodes.length)].click(); continue; }
+      if (v === 'map') {
+        if (await page.evaluate(() => RM.debug.walking)) { await page.waitForTimeout(200); continue; }
+        const nodes = await page.$$('.node.avail');
+        if (!nodes.length) { await page.waitForTimeout(200); continue; }
+        await nodes[Math.floor(Math.random() * nodes.length)].click();
+        if (!seen.has('karte-vorschau')) { seen.add('karte-vorschau'); await shot('karte-vorschau'); }
+        const go = await page.$('[data-act="mapGo"]');
+        if (go) await go.click();
+        await page.waitForTimeout(1000);
+        continue;
+      }
       if (['floorIntro', 'victory', 'result', 'floorSummary'].includes(v)) { await click('[data-act="go"]'); continue; }
       if (v === 'bossIntro') { await click('[data-act="bossStart"]'); continue; }
       if (v === 'relicChoice') { await click('[data-act="pickRelic"]'); continue; }

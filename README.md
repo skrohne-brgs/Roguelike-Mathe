@@ -37,6 +37,31 @@ Pro Gerät gibt es **drei Spielstände**, z. B. für mehrere Schüler an einem K
 - **Rastplatz → Fehlerwerkstatt:** Eine Aufgabe zu einem Thema, bei dem vorher ein Fehler passiert ist, erneut lösen. Wer es schafft, bekommt +1 maximale Lebenspunkte. Lernen aus Fehlern wird so belohnt.
 - **Fortschritt:** Erfahrungspunkte bleiben über Durchgänge hinweg erhalten und schalten neue Charaktere frei (Rechenmagier mit mehr Zeit, Ritter, Händler).
 
+## Grafik, Animationen und Klänge
+
+- **Karte:** Jede Ebene hat ihre eigene Kulisse:
+  - Katakomben mit Fackeln
+  - Kristallhöhlen
+  - Turm unter dem Sternenhimmel
+- **Koordinaten:** Die Felder liegen auf einem Koordinatengitter, jedes Feld trägt seine Koordinate, z. B. (2|1).
+- **Nebel:** Nur die nächsten zwei Reihen sind sichtbar.
+- **Vorschau:** Der erste Tipp auf ein Feld zeigt eine Vorschau mit Risiko und Belohnung, der zweite Tipp läuft los. Das verhindert Fehlklicks auf dem iPad.
+- **Kampfbühne:**
+  - Die eingetippte Antwort fliegt als Rune zum Gegner. Schnelle Antworten werden zum kritischen Treffer.
+  - Bei Fehlern stürmt der Gegner vor.
+  - Den Zeitdruck zeigt der Gegner, indem er sichtbar einen Angriff auflädt (grün → gelb → rot). Im Ruhemodus schläft er.
+  - **Während jeder Animation steht die Uhr still.**
+- **Bosse:** Auftritt mit Namensbanner, sichtbarer Phasenwechsel, Belohnungstruhe.
+- **Simulationen im Lösungsweg:**
+  - Waage (Gleichungen, nur bei positiven Zahlen)
+  - Flächenmodell (Klammern auflösen und ausklammern)
+  - Sortiermaschine (Zusammenfassen)
+  - Einsetzmaschine (Termwert)
+
+  Man kann sie Schritt für Schritt oder automatisch ablaufen lassen.
+- **Klänge** werden im Browser erzeugt, ohne Sounddateien, und sind standardmäßig aus. Schüler schalten sie im Pause-Menü um, die Lehrkraft im Lehrkraft-Bereich.
+- **Weniger Bewegung:** Schaltet Animationen weitgehend ab (Pause-Menü bzw. Lehrkraft-Bereich), z. B. bei Reizempfindlichkeit. Ist auf dem Gerät „Bewegung reduzieren“ eingestellt, gilt das automatisch.
+
 ## Eingaben
 
 Die Bildschirmtastatur ist für Tablets gemacht; auf Laptops funktioniert auch die normale Tastatur.
@@ -52,6 +77,7 @@ Die Bildschirmtastatur ist für Tablets gemacht; auf Laptops funktioniert auch d
 - **Zeitdruck aus:** Ruhemodus für alle Durchgänge auf diesem Gerät, z. B. als Nachteilsausgleich.
 - **Zeitfaktor** 1× / 1,5× / 2×.
 - **Schwierigkeit:** Leicht (eine Stufe leichter, erster Fehler ohne Schaden) / Normal / Schwer.
+- **Klänge** an/aus und **Bewegung** normal/reduziert.
 - Analoge Quests an/aus, alle Charaktere freischalten, PIN pro Gerät ändern, Lernstand einsehen und Daten löschen.
 
 ## Inhalte Jahrgang 7: Terme & Gleichungen

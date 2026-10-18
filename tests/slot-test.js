@@ -20,7 +20,9 @@ const out = process.argv[2];
     await page.fill('#nick', name);
     await page.click('[data-act="startRun"]');
     await page.click('[data-act="go"][data-to="map"]');
-    await page.click('.node.available');            // ersten Kampf betreten
+    await page.click('.node.avail');                // Feld antippen (Vorschau)
+    await page.click('[data-act="mapGo"]');          // ersten Kampf betreten
+    await page.waitForFunction(() => RM.debug.view.name === 'combat');
     await page.click('[data-act="pause"]');
     await page.click('[data-act="toTitle"]');
   }

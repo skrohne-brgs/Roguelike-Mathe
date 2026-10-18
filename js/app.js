@@ -6,10 +6,13 @@
   const $app = () => document.getElementById('app');
 
   // ================= Speicher =================
-  const DEFAULT_SETTINGS = { zeitdruck: 'moderat', zeitfaktor: 1, schwierigkeit: 'normal', quests: true, alleKlassen: false, pin: '' };
+  const DEFAULT_SETTINGS = { zeitdruck: 'moderat', zeitfaktor: 1, schwierigkeit: 'normal', quests: true, alleKlassen: false, pin: '', klang: false, bewegung: 'normal' };
   const settings = () => Object.assign({}, DEFAULT_SETTINGS, RM.store.get('rm.settings', {}));
   const saveSettings = s => RM.store.set('rm.settings', s);
   const teacherPin = () => settings().pin || RM.CONFIG.lehrerPin;
+  const applyFx = () => { const s = settings(); RM.fx.configure({ sound: s.klang, reduced: s.bewegung === 'reduziert' }); };
+  const sfx = RM.fx.sfx;
+  const byId = id => document.getElementById(id);
 
   const DEFAULT_META = { xp: 0, bossKills: 0, runs: [], skillStats: {}, name: '' };
   const meta = () => Object.assign({}, DEFAULT_META, RM.store.get('rm.meta', {}));
@@ -70,9 +73,12 @@
   const mounts = {};
   const A = {}; // Aktionen (data-act)
 
+  let simCleanup = null;
   function show(name, params = {}) {
     stopTimer();
     closeModal();
+    RM.fx.stopMap();
+    if (simCleanup) { simCleanup(); simCleanup = null; }
     view = { name, params };
     $app().innerHTML = screens[name](params);
     $app().scrollTop = 0;
@@ -83,6 +89,7 @@
   document.addEventListener('click', e => {
     const el = e.target.closest('[data-act]');
     if (!el || el.disabled) return;
+    RM.fx.unlock();
     const fn = A[el.dataset.act];
     if (fn) { e.preventDefault(); fn(el.dataset, el); }
   });
@@ -195,7 +202,8 @@
       '<button class="btn ghost" data-act="go" data-to="training">🎯 Trainingsraum</button>' +
       '<button class="btn ghost" data-act="go" data-to="progress">📊 Mein Lernstand</button>' +
       '<button class="btn ghost" data-act="go" data-to="help">❔ Spielanleitung</button>' +
-      '<button class="btn ghost small" data-act="teacherLogin">🔑 Lehrkraft</button>' +
+      '<div class="row"><button class="btn ghost small" data-act="toggleSound">' + soundLabel() + '</button>' +
+      '<button class="btn ghost small" data-act="teacherLogin">🔑 Lehrkraft</button></div>' +
       '</div>' +
       '<p class="muted center">⭐ ' + m.xp + ' Erfahrungspunkte · Alle Daten bleiben nur auf diesem Gerät.</p>' +
       '</section>';
@@ -312,7 +320,7 @@
         if (r === 0) type = 'battle';
         else if (r === N - 1) type = R.pick(['rest', 'rest', 'shop']);
         else type = R.weighted([['battle', 45], ['elite', r >= 2 ? 14 : 0], ['event', 16], ['shop', r >= 2 ? 9 : 0], ['rest', r >= 3 ? 7 : 0], ['quest', 10]]);
-        row.push({ type, x: Math.round((c + 1) / (n + 1) * 100 + R.int(-4, 4)), links: [] });
+        row.push({ type, col: Math.round((c + 1) * 6 / (n + 1)), links: [] });
       }
       rows.push(row);
     }
@@ -321,7 +329,7 @@
     if (!rows.some(row => row.some(n => n.type === 'quest'))) R.pick(rows[R.int(2, 3)]).type = 'quest';
     if (!rows.some(row => row.some(n => n.type === 'shop'))) R.pick(rows[R.int(3, 4)]).type = 'shop';
     if (run.mode === 'klasse' && !settings().quests) rows.forEach(row => row.forEach(n => { if (n.type === 'quest') n.type = 'event'; }));
-    rows.push([{ type: 'boss', x: 50, links: [] }]);
+    rows.push([{ type: 'boss', col: 3, links: [] }]);
 
     // Wege ohne Überkreuzungen
     for (let r = 0; r < rows.length - 1; r++) {
@@ -343,6 +351,7 @@
 
   function available() {
     const rows = run.map.rows;
+    if (walking) return [];
     if (!run.pos) return rows[0].map((_, i) => [0, i]);
     if (!run.nodeDone) return [[run.pos.row, run.pos.col]];
     return rows[run.pos.row][run.pos.col].links.map(c => [run.pos.row + 1, c]);
@@ -357,39 +366,157 @@
       '<button class="btn big" data-act="go" data-to="map">Betreten</button></section>';
   };
 
+  // Karte als Koordinatengitter: Spalte 0–6, Reihe 0–6 (Boss in Reihe 6)
+  const mx = col => 45 + col * 55, my = r => 610 - r * 82;
+  const colOf = n => (n.col !== undefined ? n.col : Math.round((n.x || 50) / 100 * 6));
+  const curve = (x1, y1, x2, y2) => 'M' + x1 + ' ' + y1 + ' C' + x1 + ' ' + (y1 + y2) / 2 + ' ' + x2 + ' ' + (y1 + y2) / 2 + ' ' + x2 + ' ' + y2;
+  const START = { x: mx(3), y: my(-0.75) };
+  const themeOf = () => floor().theme || ['katakomben', 'hoehlen', 'turm'][run.floor % 3];
+  const heroRow = () => (run.pos ? run.pos.row : -1);
+  let mapSel = null, walking = false;
+  const NODE_INFO = {
+    battle: ['1–3 Aufgaben · Belohnung: Gold', 1], elite: ['4 schwere Aufgaben · Belohnung: ein Relikt', 3],
+    event: ['Eine Überraschung – gut oder knifflig', 2], shop: ['Gegenstände und Heilung kaufen', 1],
+    rest: ['Ausruhen oder Fehlerwerkstatt', 1], quest: ['', 1], boss: ['Zwischenprüfung in 3 Phasen · Belohnung: Relikt nach Wahl', 3]
+  };
+
   screens.map = () => {
-    const f = floor(), rows = run.map.rows;
-    const av = new Set(available().map(([r, c]) => r + ':' + c));
-    const ROW = 88, H = rows.length * ROW + 20;
-    const y = r => H - 46 - r * ROW;
-    let lines = '', nodes = '';
-    rows.forEach((row, r) => row.forEach((n, c) => {
-      const key = r + ':' + c;
-      n.links.forEach(j => {
-        const m = rows[r + 1][j];
-        const walked = run.visited.includes(key) && run.visited.includes((r + 1) + ':' + j);
-        lines += '<line x1="' + n.x + '" y1="' + y(r) + '" x2="' + m.x + '" y2="' + y(r + 1) + '" class="' + (walked ? 'walked' : '') + '" vector-effect="non-scaling-stroke"/>';
-      });
-      const isAv = av.has(key), visited = run.visited.includes(key);
-      const label = NODE[n.type].name;
-      nodes += '<button class="node ' + n.type + (isAv ? ' available' : '') + (visited ? ' visited' : '') + '" style="left:' + n.x + '%;top:' + y(r) + 'px" ' +
-        (isAv ? 'data-act="enter" data-r="' + r + '" data-c="' + c + '"' : 'disabled') + ' aria-label="' + label + '" title="' + label + '">' +
-        '<span>' + NODE[n.type].emoji + '</span></button>';
-    }));
+    const f = floor();
+    run.walked = run.walked || [];
     const legend = Object.entries(NODE).filter(([k]) => k !== 'quest' || run.mode === 'uebung' || settings().quests)
       .map(([k, v]) => '<span>' + v.emoji + ' ' + (k === 'quest' && run.mode === 'uebung' ? 'Selbst-Quest' : v.name) + '</span>').join('');
     return hud() + '<section class="screen map-screen">' +
       '<div class="floor-title">' + f.emoji + ' Ebene ' + (run.floor + 1) + ': ' + f.name + '</div>' +
-      '<p class="muted center">Wähle deinen Weg – leuchtende Felder kannst du betreten.</p>' +
-      '<div class="map" style="height:' + H + 'px"><svg viewBox="0 0 100 ' + H + '" preserveAspectRatio="none" aria-hidden="true">' + lines + '</svg>' + nodes + '</div>' +
+      '<div class="mapbox" id="mapbox"><canvas id="mapCanvas"></canvas>' +
+      '<svg class="paths" id="mapSvg" viewBox="0 0 420 680" preserveAspectRatio="none" aria-hidden="true"></svg>' +
+      '<div class="fog" id="fog"></div><div class="lantern" id="lantern"></div><div id="mapNodes"></div>' +
+      '<div class="hero-token" id="heroToken">' + cls().emoji + '</div></div>' +
+      '<div class="preview" id="mapPreview" aria-live="polite"></div>' +
       '<div class="legend">' + legend + '</div></section>';
   };
   mounts.map = () => {
-    const el = document.querySelector('.node.available');
-    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+    mapSel = null; walking = false;
+    RM.fx.startMap(byId('mapCanvas'), themeOf(), run.floor * 31 + (run.startedAt || 7));
+    drawMapPaths();
+    drawMapDynamic();
+    // nur die Seite scrollen (scrollIntoView würde auch den Kartenrahmen verschieben)
+    const el = document.querySelector('.node.avail');
+    if (el) window.scrollBy(0, el.getBoundingClientRect().top - window.innerHeight / 2);
   };
 
-  A.enter = d => enterNode(+d.r, +d.c);
+  function drawMapPaths() {
+    const rows = run.map.rows, svg = byId('mapSvg');
+    let h = '<g class="grid">';
+    for (let c = 0; c <= 6; c++) h += '<line x1="' + mx(c) + '" y1="20" x2="' + mx(c) + '" y2="660"/>';
+    for (let r = 0; r < rows.length; r++) h += '<line x1="12" y1="' + my(r) + '" x2="408" y2="' + my(r) + '"/>';
+    h += '</g>';
+    for (let c = 0; c <= 6; c++) h += '<text class="axis" x="' + mx(c) + '" y="674" text-anchor="middle">' + c + '</text>';
+    for (let r = 0; r < rows.length; r++) h += '<text class="axis" x="4" y="' + (my(r) + 4) + '">' + r + '</text>';
+    const path = (d, walked) => '<path d="' + d + '" class="path' + (walked ? ' walked' : '') + '"/>';
+    rows[0].forEach((n, i) => { h += path(curve(START.x, START.y, mx(colOf(n)), my(0)), run.walked.includes('s-' + i)); });
+    rows.forEach((row, r) => row.forEach((n, i) => n.links.forEach(j => {
+      h += path(curve(mx(colOf(n)), my(r), mx(colOf(rows[r + 1][j])), my(r + 1)), run.walked.includes(r + ':' + i + '-' + j));
+    })));
+    svg.innerHTML = h + '<g id="mapSteps"></g>';
+  }
+
+  function placeHero(x, y) {
+    const t = byId('heroToken'), l = byId('lantern');
+    if (!t) return;
+    t.style.left = l.style.left = x / 420 * 100 + '%';
+    t.style.top = l.style.top = y / 680 * 100 + '%';
+  }
+
+  function drawMapDynamic() {
+    const rows = run.map.rows;
+    const av = new Set(available().map(([r, c]) => r + ':' + c));
+    let h = '';
+    rows.forEach((row, r) => row.forEach((n, c) => {
+      const key = r + ':' + c, far = r > heroRow() + 2 && n.type !== 'boss';
+      const cur = run.pos && run.pos.row === r && run.pos.col === c;
+      const label = (far ? 'Unbekanntes Feld' : NODE[n.type].name) + ' bei (' + colOf(n) + '|' + r + ')';
+      h += '<button class="node ' + n.type + (av.has(key) ? ' avail' : '') + (run.visited.includes(key) ? ' visited' : '') + (far ? ' far' : '') +
+        (mapSel === key ? ' sel' : '') + (cur ? ' current' : '') + '" style="left:' + mx(colOf(n)) / 4.2 + '%;top:' + my(r) / 6.8 + '%" ' +
+        'data-act="mapTap" data-r="' + r + '" data-c="' + c + '" aria-label="' + label + '">' + (far ? '?' : NODE[n.type].emoji) +
+        '<small>(' + colOf(n) + '|' + r + ')</small></button>';
+    }));
+    byId('mapNodes').innerHTML = h;
+    byId('fog').style.height = Math.max(0, my(heroRow() + 2.6) / 6.8) + '%';
+    if (!walking) placeHero(run.pos ? mx(colOf(rows[run.pos.row][run.pos.col])) : START.x, run.pos ? my(run.pos.row) : START.y);
+    renderPreview();
+  }
+
+  function renderPreview() {
+    const p = byId('mapPreview');
+    if (!p) return;
+    if (!mapSel) {
+      const resume = run.pos && !run.nodeDone;
+      p.innerHTML = '<div class="pv-head"><span>🧭</span><div><b>' + (resume ? 'Du stehst noch auf einem Feld.' : 'Wohin geht es weiter?') + '</b>' +
+        '<small>' + (resume ? 'Tippe auf dein Feld, um weiterzumachen.' : 'Tippe ein leuchtendes Feld an, um zu sehen, was dich dort erwartet.') + '</small></div></div>';
+      return;
+    }
+    const [r, c] = mapSel.split(':').map(Number), n = run.map.rows[r][c];
+    const far = r > heroRow() + 2 && n.type !== 'boss';
+    const can = available().some(([a, b]) => a === r && b === c);
+    const coord = '(' + colOf(n) + '|' + r + ')';
+    if (far) {
+      p.innerHTML = '<div class="pv-head"><span>🌫️</span><div><b>Unbekanntes Feld bei ' + coord + '</b><small>Noch im Nebel. Komm näher heran, um mehr zu sehen.</small></div></div>';
+      return;
+    }
+    const info = NODE_INFO[n.type];
+    const text = n.type === 'quest' ? (run.mode === 'klasse' ? 'Aufgabe im Heft, Freigabe durch die Lehrkraft' : 'Aufgabe im Heft mit Selbstkontrolle') : info[0];
+    const risk = ['', '<span class="pill r1">Risiko: gering</span>', '<span class="pill r2">Risiko: mittel</span>', '<span class="pill r3">Risiko: hoch</span>'][info[1]];
+    p.innerHTML = '<div class="pv-head"><span>' + NODE[n.type].emoji + '</span><div><b>' + NODE[n.type].name + ' bei ' + coord + '</b><small>' + text + '</small></div></div>' +
+      '<div class="pv-row">' + risk + (can ? '<button class="btn" data-act="mapGo">Betreten</button>' : '<span class="muted">Von hier aus nicht erreichbar</span>') + '</div>';
+  }
+
+  A.mapTap = d => {
+    if (walking) return;
+    const r = +d.r, c = +d.c, key = r + ':' + c;
+    const can = available().some(([a, b]) => a === r && b === c);
+    if (mapSel === key && can) return walkTo(r, c);
+    mapSel = key;
+    sfx.select();
+    drawMapDynamic();
+  };
+  A.mapGo = () => {
+    if (!mapSel || walking) return;
+    const [r, c] = mapSel.split(':').map(Number);
+    walkTo(r, c);
+  };
+
+  // Die Spielfigur läuft den Weg entlang, danach wird das Feld betreten
+  function walkTo(r, c) {
+    const rows = run.map.rows;
+    if (run.pos && run.pos.row === r && run.pos.col === c) return enterNode(r, c);
+    const from = run.pos ? { x: mx(colOf(rows[run.pos.row][run.pos.col])), y: my(run.pos.row) } : START;
+    const to = { x: mx(colOf(rows[r][c])), y: my(r) };
+    run.walked.push(run.pos ? run.pos.row + ':' + run.pos.col + '-' + c : 's-' + c);
+    walking = true;
+    mapSel = null;
+    drawMapPaths();
+    drawMapDynamic();
+    const tok = byId('heroToken'), steps = byId('mapSteps');
+    tok.classList.add('walk');
+    const dur = RM.fx.D(850), t0 = performance.now(), ym = (from.y + to.y) / 2;
+    const bez = (p0, p1, p2, p3, t) => { const u = 1 - t; return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3; };
+    let last = 0;
+    requestAnimationFrame(function frame(now) {
+      if (view.name !== 'map') { walking = false; return; }
+      const t = Math.min(1, (now - t0) / dur), e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      const x = bez(from.x, from.x, to.x, to.x, e), y = bez(from.y, ym, ym, to.y, e);
+      placeHero(x, y);
+      if (t - last > 0.12 && t < .95) {
+        last = t;
+        steps.insertAdjacentHTML('beforeend', '<circle class="step" cx="' + (x + (Math.round(t * 10) % 2 ? 4 : -4)) + '" cy="' + (y + 6) + '" r="2.6"/>');
+        sfx.step();
+      }
+      if (t < 1) return requestAnimationFrame(frame);
+      walking = false;
+      enterNode(r, c);
+    });
+  }
+
   function enterNode(r, c) {
     const node = run.map.rows[r][c];
     run.pos = { row: r, col: c };
@@ -427,11 +554,14 @@
   screens.bossIntro = () => {
     const b = enc.enemy;
     return hud() + '<section class="screen center story boss-intro">' +
-      '<div class="boss-emoji">' + b.emoji + '</div><h2>' + b.name + '</h2><p class="lead">' + b.intro + '</p>' +
+      '<div class="bossstage theme-' + themeOf() + '" id="bossStage"><div class="vignette"></div><div class="bossbody">' + b.emoji + '</div>' +
+      '<div class="banner"><b>' + b.name + '</b><small>Zwischenprüfung · ' + b.phases.length + ' Phasen</small></div></div>' +
+      '<p class="lead">' + b.intro + '</p>' +
       '<div class="info-box"><b>Zwischenprüfung</b><br>Der Kampf hat ' + b.phases.length + ' Phasen mit je 3 Treffern:<ul>' +
       b.phases.map(p => '<li>' + p.title + '</li>').join('') + '</ul>Am Ende siehst du, welche Themen du schon sicher beherrschst.</div>' +
       '<button class="btn big danger" data-act="bossStart">⚔️ Kampf beginnen</button></section>';
   };
+  mounts.bossIntro = () => RM.fx.bossEntrance(byId('bossStage'));
   A.bossStart = () => nextTask();
 
   function timerOn() {
@@ -475,12 +605,7 @@
       enemy = '<div class="enemy training"><div class="enemy-emoji">🎯</div><div class="enemy-info"><b>Trainingsraum</b><small>' + sk.label + ' · Stufe ' + t.d + '</small></div></div>';
     } else {
       head = hud();
-      const total = enc.kind === 'boss' ? enc.phases.length * enc.maxHp : enc.maxHp;
-      const left = enc.kind === 'boss' ? (enc.phases.length - enc.phase - 1) * enc.maxHp + enc.hp : enc.hp;
-      const pips = Array.from({ length: total }, (_, i) => '<i class="' + (i < left ? 'on' : '') + '"></i>').join('');
-      enemy = '<div class="enemy ' + enc.kind + '"><div class="enemy-emoji" id="enemyEmoji">' + enc.enemy.emoji + '</div><div class="enemy-info"><b>' + enc.enemy.name + '</b>' +
-        (enc.kind === 'boss' ? '<small>' + enc.phases[enc.phase].title + '</small>' : enc.kind === 'elite' ? '<small>Elitegegner</small>' : '') +
-        '<div class="pips" aria-label="Gegner-Leben: ' + left + '">' + pips + '</div></div></div>';
+      enemy = arenaHtml();
     }
     const timer = timerOn() && enc.state === 'ask' ? '<div class="timer"><div id="timerBar"></div><span id="timerLabel"></span></div>' : '';
     let body;
@@ -497,7 +622,38 @@
   mounts.combat = () => {
     startTimer();
     if (enc.pendingFeedback) { feedback(enc.pendingFeedback.msg, enc.pendingFeedback.kind); enc.pendingFeedback = null; }
+    const host = byId('simHost');
+    if (host && enc.state === 'solution') simCleanup = RM.sims.mount(host, enc.task.sim);
   };
+
+  // Kampfbühne: Held links, Gegner rechts
+  function pipsHtml() {
+    const total = enc.kind === 'boss' ? enc.phases.length * enc.maxHp : enc.maxHp;
+    const left = enc.kind === 'boss' ? (enc.phases.length - enc.phase - 1) * enc.maxHp + enc.hp : enc.hp;
+    return '<div class="pips" id="pips" aria-label="Gegner-Leben: ' + left + '">' + Array.from({ length: total }, (_, i) => '<i class="' + (i < left ? 'on' : '') + '"></i>').join('') + '</div>';
+  }
+  function arenaHtml() {
+    const sleeping = !timerOn() && enc.kind !== 'event';
+    const sub = enc.kind === 'boss' ? enc.phases[enc.phase].title : enc.kind === 'elite' ? 'Elitegegner' : '';
+    return '<div class="arena theme-' + themeOf() + ' ' + enc.kind + '" id="arena">' +
+      '<div class="torch" style="left:7%"></div><div class="torch" style="left:93%"></div><div class="floorline"></div>' +
+      '<div class="combo" id="combo">' + (enc.combo > 1 ? '🔥 Kombo ×' + enc.combo : '') + '</div>' +
+      '<div class="fighter hero" id="heroF"><span class="body">' + cls().emoji + '</span><div class="shadow"></div></div>' +
+      '<div class="fighter enemy" id="enemyF"><div class="aura" id="aura"></div>' + (sleeping ? '<div class="zzz">💤</div>' : '') +
+      '<span class="body' + (enc.kind === 'boss' && enc.phase > 0 ? ' rage' : '') + '" id="enemyBody">' + enc.enemy.emoji + '</span><div class="shadow"></div></div>' +
+      '<div class="enemy-tag"><b>' + enc.enemy.name + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + pipsHtml() + '</div>' +
+      '</div>';
+  }
+  function updateHud() {
+    const old = document.querySelector('.hud');
+    if (old && run) old.outerHTML = hud();
+  }
+  // Uhr anhalten, solange eine Animation läuft
+  async function frozen(promise) {
+    const t0 = Date.now();
+    await promise;
+    if (enc) enc.start += Date.now() - t0;
+  }
 
   function choicesHtml() {
     const t = enc.task;
@@ -561,6 +717,13 @@
     const bar = document.getElementById('timerBar'), label = document.getElementById('timerLabel');
     if (!bar || !enc || !enc.task) return stopTimer();
     const el = (Date.now() - enc.start) / 1000, lim = timeLimit();
+    const aura = byId('aura');
+    if (aura) {
+      const p = Math.min(1, el / (2 * lim));
+      aura.style.setProperty('--aura', el <= lim ? 'rgba(92, 201, 138, .7)' : el <= 2 * lim ? 'rgba(242, 201, 76, .8)' : 'rgba(239, 100, 97, .9)');
+      aura.style.opacity = .2 + .8 * p;
+      aura.style.transform = 'translate(-50%, -50%) scale(' + (.5 + 1.1 * p) + ')';
+    }
     if (el <= lim) { bar.style.width = (100 - el / lim * 100) + '%'; bar.className = 'ok'; label.textContent = '⚡ Blitz-Bonus: noch ' + Math.ceil(lim - el) + ' s'; }
     else if (el <= 2 * lim) { bar.style.width = (100 - (el - lim) / lim * 100) + '%'; bar.className = 'warn'; label.textContent = 'Der Gegner holt aus …'; }
     else { bar.style.width = '100%'; bar.className = 'late'; label.textContent = 'Zu langsam: −1 ❤️ (auch bei richtiger Antwort)'; }
@@ -575,7 +738,7 @@
     if (res.syntax) return feedback('✏️ ' + res.msg, 'info');
     if (res.partial) return feedback('🤏 ' + res.msg, 'warn');
     const elapsed = (Date.now() - enc.start) / 1000;
-    if (res.ok) onCorrect(elapsed); else onWrong(choice);
+    if (res.ok) onCorrect(elapsed, choice); else onWrong(choice);
   }
 
   function applyDamage(n) { // true = besiegt
@@ -594,7 +757,15 @@
     return false;
   }
 
-  function onCorrect(elapsed) {
+  // Was als Rune zum Gegner fliegt: die eigene Antwort
+  function runeHtml(choice) {
+    const t = enc.task;
+    if (t.input !== 'choice') return fmtInput(enc.input);
+    const txt = t.choices[choice].replace(/<[^>]+>/g, '');
+    return txt.length <= 22 ? t.choices[choice] : '✦ ' + 'ABCD'[choice];
+  }
+
+  async function onCorrect(elapsed, choice) {
     const t = enc.task, first = enc.attempts === 0, me = enc;
     stopTimer();
     enc.state = 'done';
@@ -602,20 +773,23 @@
     if (enc.kind === 'training') {
       enc.solved++; enc.done++; enc.streak++;
       feedback('✔ Richtig!' + (enc.streak >= 3 ? ' 🔥 ' + enc.streak + ' in Folge!' : ''), 'good');
+      sfx.coin();
       setTimeout(() => { if (enc === me && view.name === 'combat') nextTask(); }, 900);
       return;
     }
     let msg = first ? '✔ Richtig!' : '✔ Richtig – im zweiten Versuch.';
-    let gold = 1 + (hasRelic('goldbleistift') ? 2 : 0);
+    let gold = 1 + (hasRelic('goldbleistift') ? 2 : 0), crit = false, slow = false;
     if (timerOn()) {
       const lim = timeLimit();
       if (first && elapsed <= lim) {
         enc.combo++;
+        crit = true;
         gold += 1 + Math.min(enc.combo, 3);
-        msg = '⚡ Blitzschnell und richtig!' + (enc.combo > 1 ? ' Kombo ×' + enc.combo : '');
+        msg = '⚡ Blitzschnell und richtig – kritischer Treffer!' + (enc.combo > 1 ? ' Kombo ×' + enc.combo : '');
       } else {
         enc.combo = 0;
         if (elapsed > 2 * lim) {
+          slow = true;
           msg += ' Aber du hast sehr lange gebraucht – der Gegner trifft dich (−1 ❤️).';
           if (applyDamage(1)) { enc.dead = true; enc.state = 'solution'; return show('combat'); }
         }
@@ -626,18 +800,25 @@
     msg += ' <span class="gold">+' + gold + ' 🪙</span>';
     enc.hp--;
     saveRun();
-    refreshCombat();
+    updateHud();
     feedback(msg, 'good');
-    const em = document.getElementById('enemyEmoji');
-    if (em) em.classList.add('hit');
-    setTimeout(() => {
-      if (enc !== me || view.name !== 'combat') return;
-      if (enc.hp <= 0) enemyDefeated(); else nextTask();
-    }, 1300);
+    const arena = byId('arena');
+    const hit = await RM.fx.attack(arena, runeHtml(choice), crit);
+    if (enc !== me || view.name !== 'combat') return;
+    const pips = byId('pips');
+    if (pips) pips.outerHTML = pipsHtml();
+    const combo = byId('combo');
+    if (combo) combo.textContent = enc.combo > 1 ? '🔥 Kombo ×' + enc.combo : '';
+    if (hit) RM.fx.floatText(arena, '+' + gold + ' 🪙', hit.x, hit.y - 40, crit ? 'crit' : 'gold');
+    sfx.coin();
+    if (slow) await RM.fx.enemyAttack(arena, '−1 ❤️', false);
+    await RM.fx.wait(450);
+    if (enc !== me || view.name !== 'combat') return;
+    if (enc.hp <= 0) enemyDefeated(); else nextTask();
   }
 
-  function onWrong(choice) {
-    const t = enc.task;
+  async function onWrong(choice) {
+    const t = enc.task, me = enc;
     enc.attempts++;
     if (t.input === 'choice') enc.hidden.push(choice);
     const visible = t.input === 'choice' ? t.choices.length - enc.hidden.length : 99;
@@ -651,6 +832,14 @@
       recordStat(t, false, false);
       if (enc.kind === 'training') { enc.done++; enc.streak = 0; }
       else if (run && enc.kind !== 'event') run.mistakes.push({ skill: t.skill, d: t.d });
+    }
+    if (enc.kind !== 'training') {
+      enc.state = 'anim';
+      enc.combo = 0;
+      const blocked = !dmg && !enc.noDamage;
+      await frozen(RM.fx.enemyAttack(byId('arena'), dmg ? '💔 −' + dmg : blocked ? '🛡️ geblockt' : '✘ daneben', !dmg));
+      if (enc !== me || view.name !== 'combat') return;
+      enc.state = 'ask';
     }
     if (run && enc.kind !== 'training' && applyDamage(dmg)) {
       enc.dead = true; enc.state = 'solution';
@@ -680,7 +869,9 @@
     else if (enc.lastNote) sub = '<p>' + enc.lastNote + '</p>';
     return '<div class="task-prompt dim">' + t.prompt + '</div>' +
       '<div class="solution"><h3>' + title + '</h3>' + sub +
-      '<p>Richtige Antwort: <b>' + t.answerHtml + '</b></p><div class="steps">' + t.steps.join('') + '</div>' +
+      '<p>Richtige Antwort: <b>' + t.answerHtml + '</b></p>' +
+      (RM.sims.supports(t.sim) ? '<div id="simHost"></div>' : '') +
+      '<div class="steps">' + t.steps.join('') + '</div>' +
       '<button class="btn big" data-act="afterSolution">' + (enc.dead ? 'Zur Auswertung' : 'Weiter') + '</button></div>';
   }
   A.afterSolution = () => {
@@ -689,14 +880,18 @@
     nextTask();
   };
 
-  function enemyDefeated() {
+  async function enemyDefeated() {
+    const me = enc, arena = byId('arena');
     if (enc.kind === 'boss' && enc.phase < enc.phases.length - 1) {
       enc.phase++;
       enc.hp = enc.maxHp;
-      toast('💥 ' + enc.enemy.name + ' wird wütend! ' + enc.phases[enc.phase].title, 'warn');
-      return nextTask();
+      await RM.fx.phaseChange(arena, enc.enemy.name + ' wird wütend!', enc.phases[enc.phase].title);
+      if (enc === me && view.name === 'combat') nextTask();
+      return;
     }
     if (enc.single) return enc.onEnd(true);
+    await RM.fx.defeat(arena);
+    if (enc !== me || view.name !== 'combat') return;
     if (enc.kind === 'boss') return bossDefeated();
     const rewards = [];
     const hp = 1 + (hasRelic('kompass') ? 1 : 0);
@@ -711,11 +906,13 @@
     }
     run.nodeDone = true;
     saveRun();
-    show('victory', { rewards, enemy: enc.enemy });
+    show('victory', { rewards, enemy: enc.enemy, chest: enc.kind === 'elite' });
   }
 
+  const chestStage = () => '<div class="cheststage" id="chestStage"><div class="rays"></div><div class="chest"><div class="lid"></div><div class="box"></div></div></div>';
+  mounts.victory = p => { if (p.chest) RM.fx.chest(byId('chestStage')); else sfx.coin(); };
   screens.victory = p => hud() + '<section class="screen center story">' +
-    '<div class="big-emoji">🏆</div><h2>Sieg!</h2><p class="lead">' + p.enemy.emoji + ' ' + p.enemy.name + ' ist besiegt.</p>' +
+    (p.chest ? chestStage() : '<div class="big-emoji">🏆</div>') + '<h2>Sieg!</h2><p class="lead">' + p.enemy.emoji + ' ' + p.enemy.name + ' ist besiegt.</p>' +
     '<ul class="rewards">' + p.rewards.map(r => '<li>' + r + '</li>').join('') + '</ul>' +
     '<button class="btn big" data-act="go" data-to="map">Weiter</button></section>';
 
@@ -772,12 +969,13 @@
   screens.floorSummary = () => {
     const f = floor(), stats = run.floorStats[run.floor] || {};
     return hud() + '<section class="screen narrow">' +
-      '<div class="center"><div class="big-emoji">👑</div><h2>' + f.boss.name + ' ist besiegt!</h2>' +
+      '<div class="center">' + chestStage() + '<h2>' + f.boss.name + ' ist besiegt!</h2>' +
       '<p class="lead">Ebene ' + (run.floor + 1) + ' geschafft: „' + f.name + '“</p></div>' +
       '<h3>Deine Zwischenbilanz für diese Ebene</h3>' + statsTable(stats, topic(), f.skills) + recommendations(stats, topic()) +
       '<div class="row"><button class="btn big" data-act="go" data-to="relicChoice">' + (run.relicChoice.length ? '🎁 Belohnung wählen' : 'Weiter') + '</button></div></section>';
   };
 
+  mounts.floorSummary = () => RM.fx.chest(byId('chestStage'));
   screens.relicChoice = () => {
     if (!run.relicChoice.length) { setTimeout(advanceFloor, 0); return ''; }
     return hud() + '<section class="screen center">' +
@@ -1115,6 +1313,8 @@
       '<div class="setting"><div><b>Zeitfaktor</b><small>Verlängert die Zielzeiten aller Aufgaben.</small></div><div class="segs">' + opt('zeitfaktor', 1, '1×') + opt('zeitfaktor', 1.5, '1,5×') + opt('zeitfaktor', 2, '2×') + '</div></div>' +
       '<div class="setting"><div><b>Schwierigkeit</b><small>Leicht: Aufgaben eine Stufe leichter, erster Fehler ohne Schaden. Schwer: eine Stufe schwerer.</small></div><div class="segs">' + opt('schwierigkeit', 'leicht', 'Leicht') + opt('schwierigkeit', 'normal', 'Normal') + opt('schwierigkeit', 'schwer', 'Schwer') + '</div></div>' +
       '<div class="setting"><div><b>Analoge Quests im Klassenmodus</b><small>Wirkt ab der nächsten Ebene bzw. dem nächsten Durchgang.</small></div><div class="segs">' + opt('quests', true, 'An') + opt('quests', false, 'Aus') + '</div></div>' +
+      '<div class="setting"><div><b>Klänge</b><small>Im Browser erzeugt, ohne Sounddateien. Schüler können sie im Pause-Menü umschalten.</small></div><div class="segs">' + opt('klang', true, 'An') + opt('klang', false, 'Aus') + '</div></div>' +
+      '<div class="setting"><div><b>Bewegung</b><small>„Reduziert“ schaltet Animationen weitgehend ab, z. B. bei Reizempfindlichkeit. Gilt automatisch, wenn das Gerät „Bewegung reduzieren“ nutzt.</small></div><div class="segs">' + opt('bewegung', 'normal', 'Normal') + opt('bewegung', 'reduziert', 'Reduziert') + '</div></div>' +
       '<div class="setting"><div><b>Alle Charaktere freischalten</b></div><div class="segs">' + opt('alleKlassen', true, 'An') + opt('alleKlassen', false, 'Aus') + '</div></div>' +
       '<div class="setting"><div><b>PIN für dieses Gerät ändern</b><small>Standard-PIN steht in js/config.js.</small></div><div class="segs"><input id="newPin" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="neue PIN"><button class="btn small" data-act="setPin">Speichern</button></div></div>' +
       '<div class="row"><button class="btn ghost" data-act="go" data-to="progress">📊 Lernstand auf diesem Gerät</button><button class="btn danger" data-act="resetAll">Alle Spieldaten löschen</button></div>' +
@@ -1126,6 +1326,7 @@
     if (v === 'true') v = true; else if (v === 'false') v = false; else if (d.k === 'zeitfaktor') v = +v;
     s[d.k] = v;
     saveSettings(s);
+    applyFx();
     show('teacher');
   };
   A.setPin = () => {
@@ -1179,8 +1380,24 @@
   };
 
   // ================= Menü & Hilfe =================
+  const soundLabel = () => (settings().klang ? '🔊 Klänge: an' : '🔇 Klänge: aus');
+  const motionLabel = () => (settings().bewegung === 'reduziert' ? '🐢 Weniger Bewegung: an' : '🐢 Weniger Bewegung: aus');
+  function toggleSetting(k, a, b) {
+    const s = settings();
+    s[k] = s[k] === a ? b : a;
+    saveSettings(s);
+    applyFx();
+    if (k === 'klang') sfx.coin();
+  }
+  A.toggleSound = () => {
+    toggleSetting('klang', true, false);
+    if (document.querySelector('.modal-bg')) A.pause(); else show(view.name, view.params);
+  };
+  A.toggleMotion = () => { toggleSetting('bewegung', 'reduziert', 'normal'); A.pause(); };
   A.pause = () => modal('<h3>Pause</h3><div class="menu">' +
     '<button class="btn" data-act="closeModal">▶ Weiterspielen</button>' +
+    '<button class="btn ghost" data-act="toggleSound">' + soundLabel() + '</button>' +
+    '<button class="btn ghost" data-act="toggleMotion">' + motionLabel() + '</button>' +
     '<button class="btn ghost" data-act="toTitle">🏠 Hauptmenü (Spielstand wird gespeichert)</button>' +
     '<button class="btn ghost" data-act="giveUp">🏳️ Abenteuer beenden</button></div>');
   A.toTitle = () => { saveRun(); enc = null; run = null; slot = -1; show('title'); };
@@ -1189,12 +1406,13 @@
 
   screens.help = () => '<section class="screen narrow help"><h2>❔ Spielanleitung</h2>' +
     '<h3>Das Ziel</h3><p>Kämpfe dich durch drei Ebenen voller Mathe-Monster. Am Ende jeder Ebene wartet ein Boss – eine Zwischenprüfung zum Thema der Ebene.</p>' +
-    '<h3>Die Karte</h3><p>Du wählst selbst deinen Weg: ⚔️ Gegner, 💀 Elitegegner (schwerer, aber mit Relikt), ❓ Ereignisse, 🛒 Händler, 🔥 Rastplätze und 📜 Quests.</p>' +
+    '<h3>Die Karte</h3><p>Du wählst selbst deinen Weg: ⚔️ Gegner, 💀 Elitegegner (schwerer, aber mit Relikt), ❓ Ereignisse, 🛒 Händler, 🔥 Rastplätze und 📜 Quests. Tippe ein Feld einmal an, um zu sehen, was dort wartet, und ein zweites Mal (oder „Betreten“), um loszugehen. Weiter entfernte Felder liegen im Nebel.</p>' +
     '<h3>Kämpfe</h3><ul><li>Jede richtige Antwort trifft den Gegner.</li><li>Eine falsche Antwort kostet 1 ❤️ – du hast aber einen zweiten Versuch (mit Tipp).</li>' +
     '<li>Ist auch der zweite Versuch falsch, kostet das noch 1 ❤️ und du siehst den Lösungsweg.</li>' +
     '<li>Nach jedem gewonnenen Kampf erholst du dich um 1 ❤️.</li>' +
     '<li>⚡ Bist du schnell (grüner Balken), gibt es Bonus-Gold. Brauchst du extrem lange (roter Balken), trifft dich der Gegner (−1 ❤️).</li>' +
     '<li>Eingaben: Terme wie <span class="m">3<i>x</i> + 2</span>, Brüche als <span class="m">3/4</span>, Dezimalzahlen mit Komma. Gleichwertige Schreibweisen werden erkannt.</li></ul>' +
+    '<h3>Lösungswege</h3><p>Nach einem Fehler siehst du den Lösungsweg. Bei vielen Aufgaben zeigt eine Animation das Prinzip: die Waage bei Gleichungen, das Flächenmodell bei Klammern, die Sortiermaschine beim Zusammenfassen und die Einsetzmaschine beim Termwert.</p>' +
     '<h3>Analoge Quests</h3><p>Im Klassenmodus bearbeitest du Quests im Heft und legst sie deiner Lehrkraft vor. Im Übungsmodus kontrollierst du dich selbst.</p>' +
     '<h3>Fortschritt</h3><p>Verlierst du alle Lebenspunkte, beginnt ein neues Abenteuer. Deine Erfahrung bleibt und schaltet neue Charaktere frei. Im 🎯 Trainingsraum kannst du jedes Thema gezielt üben.</p>' +
     '<h3>Datenschutz</h3><p>Das Spiel speichert nichts im Internet. Alle Daten bleiben in diesem Browser auf diesem Gerät.</p>' +
@@ -1230,7 +1448,8 @@
   });
 
   // Lesezugriff für automatische Tests
-  RM.debug = { get run() { return run; }, get enc() { return enc; }, get view() { return view; } };
+  RM.debug = { get run() { return run; }, get enc() { return enc; }, get view() { return view; }, get walking() { return walking; } };
 
+  applyFx();
   show('title');
 })(window.RM);

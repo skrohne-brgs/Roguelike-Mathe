@@ -46,6 +46,12 @@
     ? '<div class="step">' + fmt(x.l + ' = ' + x.r) + ' <span class="note">| ' + x.text + '</span></div>'
     : T.eqStep(x.l, x.r, x.note));
 
+  // Waage-Simulation für a·x + b = c·x + d, nur wenn alles positiv darstellbar ist
+  function waageSim(a, b, c, d, x) {
+    if (!(Number.isInteger(x) && x > 0 && c >= 0 && a > c && a <= 8 && c <= 6 && b >= 0 && d >= 0)) return null;
+    return { type: 'waage', a, b, c, d, x };
+  }
+
   // Lineare Gleichung mit ganzzahliger Lösung
   function linEq(d) {
     const x = d === 1 ? R.int(1, 12) : R.nonzero(-9, 12);
@@ -92,6 +98,7 @@
         return T.valueTask({
           prompt: 'Berechne den Wert des Terms ' + fmt(term) + ' für ' + bel + '.',
           answer: value, time: [30, 45, 60][d - 1],
+          sim: { type: 'einsetz', term, vals, sub, value: value.toMarkup() },
           hint: 'Setze die Zahl für die Variable ein – negative Zahlen in Klammern! Dann gilt: Klammern, Potenzen, Punkt vor Strich.',
           steps: [T.step('Einsetzen: ' + fmt(sub)), T.step('Ausrechnen: ' + fmt(sub + ' = ' + value.toMarkup()))]
         });
@@ -158,7 +165,17 @@
         const order = ['x^2', 'x', 'a', 'b', ''];
         const grouped = order.filter(v => items.some(it => it[1] === v))
           .map(v => '(' + J(items.filter(it => it[1] === v)) + ')').join(' + ');
+        const keys = order.filter(v => items.some(it => it[1] === v));
+        const sim = {
+          type: 'sort', term, result: ans.toMarkup(),
+          chips: items.map(([c, v], i) => ({ key: v, text: i === 0 ? J([[c, v]]) : (c < 0 ? '- ' : '+ ') + J([[Math.abs(c), v]]) })),
+          groups: keys.map(v => {
+            const list = items.filter(it => it[1] === v), sum = list.reduce((p, it) => p + it[0], 0);
+            return { key: v, label: v === '' ? 'Zahlen' : fmt(v) + '-Terme', res: J([[sum, v]]), calc: J(list) + ' = ' + J([[sum, v]]), zero: sum === 0 };
+          })
+        };
         return T.termTask({
+          sim,
           prompt: 'Fasse den Term so weit wie möglich zusammen: ' + fmt(term),
           answer: ans, mode: 'simplified', time: [45, 60, 90][d - 1],
           hint: 'Nur gleichartige Terme darfst du zusammenfassen: gleiche Variable <b>und</b> gleiche Hochzahl. Zahlen ohne Variable bilden eine eigene Gruppe.',
@@ -193,12 +210,13 @@
       kc: 'Zahlen und Operationen', pk: 'Mit symbolischen, formalen und technischen Elementen umgehen', afb: 'I–II',
       gen(d) {
         const k = R.int(2, 9), b = R.nonzero(-9, 9), a = R.int(2, 6), m = R.int(2, 6), c = R.nonzero(-9, 9);
-        let term, parts, raw;
+        let term, parts, raw, sim = null;
         if (d === 1) {
           const v = R.pick(['x', 'a']);
           term = k + '(' + v + pm(b) + ')';
           raw = k + '*' + v + ' + ' + k + '*' + par(b);
           parts = [P(term)];
+          if (b > 0) sim = { type: 'flaeche', outer: String(k), parts: [{ top: v, area: k + v }, { top: String(b), area: String(k * b) }], whole: term, result: P(term).toMarkup() };
         } else if (d === 2) {
           if (R.chance(0.6)) {
             term = (-k) + '(' + a + 'x' + pm(b) + ')';
@@ -206,6 +224,7 @@
           } else {
             term = 'x(' + a + 'x' + pm(b) + ')';
             raw = 'x*' + a + 'x + x*' + par(b);
+            if (b > 0) sim = { type: 'flaeche', outer: 'x', parts: [{ top: a + 'x', area: a + 'x^2' }, { top: String(b), area: b + 'x' }], whole: term, result: P(term).toMarkup() };
           }
           parts = [P(term)];
         } else {
@@ -220,6 +239,7 @@
         if (d === 3) steps.push(T.step('Zusammenfassen: ' + fmt(ans.toMarkup())));
         else steps.push(T.step('Ergebnis: ' + fmt(ans.toMarkup())));
         return T.termTask({
+          sim,
           prompt: 'Löse die Klammern auf und fasse zusammen: ' + fmt(term),
           answer: ans, mode: 'simplified', time: [40, 60, 90][d - 1],
           hint: 'Distributivgesetz: a(b + c) = ab + ac. Steht ein Minus vor der Klammer, ändern sich alle Vorzeichen in der Klammer.',
@@ -233,13 +253,14 @@
       kc: 'Zahlen und Operationen', pk: 'Mit symbolischen, formalen und technischen Elementen umgehen', afb: 'II',
       gen(d) {
         const gcd = RM.math.gcd;
-        let g, inner, outer, expanded;
+        let g, inner, outer, expanded, sim = null;
         if (d === 1) {
           let a, b;
           do { a = R.int(1, 9); b = R.nonzero(-9, 9); } while (gcd(a, b) !== 1);
           g = R.int(2, 9);
           inner = J([[a, 'x'], [b, '']]); outer = String(g);
           expanded = J([[g * a, 'x'], [g * b, '']]);
+          if (b > 0) sim = { type: 'flaeche', reverse: true, outer, parts: [{ top: vterm(a, 'x'), area: vterm(g * a, 'x') }, { top: String(b), area: String(g * b) }] };
         } else if (d === 2) {
           let a, b, c;
           do { a = R.int(1, 6); b = R.nonzero(-6, 6); c = R.nonzero(-9, 9); } while (gcd(gcd(a, b), c) !== 1);
@@ -253,9 +274,12 @@
           g = R.int(1, 6);
           inner = J([[a, 'x'], [b, '']]); outer = (g === 1 ? '' : g) + 'x';
           expanded = J([[g * a, 'x^2'], [g * b, 'x']]);
+          if (b > 0) sim = { type: 'flaeche', reverse: true, outer, parts: [{ top: vterm(a, 'x'), area: vterm(g * a, 'x^2') }, { top: String(b), area: vterm(g * b, 'x') }] };
         }
         const sol = outer + '(' + inner + ')';
+        if (sim) { sim.whole = sol; sim.result = expanded; }
         return T.termTask({
+          sim,
           prompt: 'Klammere den größten gemeinsamen Faktor aus: ' + fmt(expanded),
           answer: P(expanded), mode: 'factored', time: [45, 60, 75][d - 1],
           answerHtml: fmt(sol), solutionInput: sol.replace(/ /g, ''),
@@ -322,22 +346,23 @@
       label: 'Lineare Gleichungen lösen',
       kc: 'Zahlen und Operationen', pk: 'Mit symbolischen, formalen und technischen Elementen umgehen', afb: 'I–II',
       gen(d) {
-        let lhs, rhs, x, steps;
+        let lhs, rhs, x, steps, sim = null;
         if (d === 1) {
           x = R.int(1, 15);
           const a = R.int(2, 9);
           const type = R.pick(['plus', 'minus', 'mal', 'geteilt']);
-          if (type === 'plus') { lhs = 'x + ' + a; rhs = String(x + a); steps = [T.eqStep(lhs, rhs, '-' + a), T.eqStep('x', x)]; }
+          if (type === 'plus') { lhs = 'x + ' + a; rhs = String(x + a); steps = [T.eqStep(lhs, rhs, '-' + a), T.eqStep('x', x)]; sim = waageSim(1, a, 0, x + a, x); }
           else if (type === 'minus') { lhs = 'x - ' + a; rhs = String(x - a); steps = [T.eqStep(lhs, rhs, '+' + a), T.eqStep('x', x)]; }
-          else if (type === 'mal') { lhs = a + 'x'; rhs = String(a * x); steps = [T.eqStep(lhs, rhs, ':' + a), T.eqStep('x', x)]; }
+          else if (type === 'mal') { lhs = a + 'x'; rhs = String(a * x); steps = [T.eqStep(lhs, rhs, ':' + a), T.eqStep('x', x)]; sim = waageSim(a, 0, 0, a * x, x); }
           else { const q = R.int(1, 9); x = a * q; lhs = '[x/' + a + ']'; rhs = String(q); steps = [T.eqStep(lhs, rhs, '*' + a), T.eqStep('x', x)]; }
         } else {
           const e = linEq(d);
           x = e.x; lhs = e.lhs; rhs = e.rhs;
           steps = renderLines(linLines(e.a, e.b, e.c, e.dd));
+          sim = waageSim(e.a, e.b, e.c, e.dd, x);
         }
         return T.valueTask({
-          prompt: 'Löse die Gleichung: ' + fmt(lhs + ' = ' + rhs),
+          prompt: 'Löse die Gleichung: ' + fmt(lhs + ' = ' + rhs), sim,
           var: 'x', answer: new Q(x), time: [40, 60, 90][d - 1],
           hint: 'Bringe alle x auf eine Seite und alle Zahlen auf die andere. Was du links machst, musst du auch rechts machen.',
           steps
@@ -492,6 +517,7 @@
           .concat(renderLines(linLines(A, B, C, D)), [T.step('Antwort: ' + antwort)]);
         return T.valueTask({
           prompt: text, answer: new Q(x), time: [60, 90, 120][d - 1],
+          sim: waageSim(A, B, C, D, x),
           hint: 'Lege fest, wofür x steht. Übersetze dann den Text Satz für Satz in eine Gleichung und löse sie.',
           steps
         });
@@ -596,7 +622,7 @@
     skills,
     floors: [
       {
-        id: 'f1', name: 'Die Katakomben der Terme', emoji: '🕯️',
+        id: 'f1', name: 'Die Katakomben der Terme', emoji: '🕯️', theme: 'katakomben',
         intro: 'In den feuchten Gängen unter der Burg hausen Wesen, die nur mit Termen zu besiegen sind.',
         skills: ['termwert', 'termaufstellen', 'zusammenfassen', 'multiplizieren'],
         enemies: [{ name: 'Variablen-Fledermaus', emoji: '🦇' }, { name: 'Termratte', emoji: '🐀' }, { name: 'Rechenskelett', emoji: '💀' }, { name: 'Zahlenschleim', emoji: '🟢' }],
@@ -613,7 +639,7 @@
         quests: quests.f1
       },
       {
-        id: 'f2', name: 'Die Klammerhöhlen', emoji: '🪨',
+        id: 'f2', name: 'Die Klammerhöhlen', emoji: '🪨', theme: 'hoehlen',
         intro: 'Tiefer im Berg winden sich Gänge voller Klammern. Ein falsches Vorzeichen – und die Decke stürzt ein.',
         skills: ['ausmultiplizieren', 'ausklammern', 'aequivalenz', 'zusammenfassen'],
         enemies: [{ name: 'Klammerschlange', emoji: '🐍' }, { name: 'Minusskorpion', emoji: '🦂' }, { name: 'Vorzeichengeist', emoji: '👻' }, { name: 'Netzspinne', emoji: '🕷️' }],
@@ -630,7 +656,7 @@
         quests: quests.f2
       },
       {
-        id: 'f3', name: 'Der Turm der Gleichungen', emoji: '🗼',
+        id: 'f3', name: 'Der Turm der Gleichungen', emoji: '🗼', theme: 'turm',
         intro: 'Ganz oben im Turm wartet der Gleichungsgolem. Auf jeder Stufe muss die Waage im Gleichgewicht bleiben.',
         skills: ['gleichung', 'gleichung_klammer', 'probe', 'fehler_finden', 'textgleichung'],
         enemies: [{ name: 'Waagen-Kobold', emoji: '👺' }, { name: 'Spiegelgeist', emoji: '🪞' }, { name: 'Turmeule', emoji: '🦉' }, { name: 'Gleichungswolf', emoji: '🐺' }],
