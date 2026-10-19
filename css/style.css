@@ -212,6 +212,10 @@ html.gross .dchip { font-size: 1.05rem; }
 .hero-token .sprite { width: 100%; height: auto; }
 .hero-token { width: 11%; }
 .card-emoji .sprite { width: 64px; height: 64px; }
+.fighter.enemy .body { font-size: 64px; }
+.fighter.enemy .sprite { width: 84px; height: 84px; }
+.arena.boss .fighter.enemy .sprite { width: 104px; height: 104px; }
+.bossbody .sprite { width: 170px; height: 170px; }
 
 /* ---------- Kampfbühne ---------- */
 .arena { position: relative; height: 170px; border-radius: 18px; overflow: hidden; border: 2px solid var(--line); margin: 6px auto 10px; max-width: 760px;
@@ -472,6 +476,8 @@ html.gross .dchip { font-size: 1.05rem; }
   .arena { height: 140px; }
   .fighter .body { font-size: 44px; } .fighter.enemy .body { font-size: 50px; }
   .fighter.hero .sprite { width: 56px; height: 56px; }
+  .fighter.enemy .sprite { width: 60px; height: 60px; } .arena.boss .fighter.enemy .sprite { width: 76px; height: 76px; }
+  .bossbody .sprite { width: 130px; height: 130px; }
   .bossbody { font-size: 80px; }
   .stats { font-size: .85rem; }
   .hud { gap: 8px; }
@@ -480,6 +486,7 @@ html.calm *, html.calm *::before, html.calm *::after { animation-duration: .01ms
 @media (max-height: 860px) and (min-width: 701px) {
   .arena { height: 140px; }
   .fighter.hero .sprite { width: 64px; height: 64px; }
+  .fighter.enemy .sprite { width: 68px; height: 68px; } .arena.boss .fighter.enemy .sprite { width: 84px; height: 84px; }
   .fighter .body { font-size: 46px; } .fighter.enemy .body { font-size: 52px; } .arena.boss .fighter.enemy .body { font-size: 60px; }
   .key { min-height: 50px; }
   .task-card { padding: 14px 16px; }

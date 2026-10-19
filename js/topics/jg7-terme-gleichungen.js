@@ -625,10 +625,10 @@
         id: 'f1', name: 'Die Katakomben der Terme', emoji: '🕯️', theme: 'katakomben',
         intro: 'In den feuchten Gängen unter der Burg hausen Wesen, die nur mit Termen zu besiegen sind.',
         skills: ['termwert', 'termaufstellen', 'zusammenfassen', 'multiplizieren'],
-        enemies: [{ name: 'Variablen-Fledermaus', emoji: '🦇' }, { name: 'Termratte', emoji: '🐀' }, { name: 'Rechenskelett', emoji: '💀' }, { name: 'Zahlenschleim', emoji: '🟢' }],
-        elites: [{ name: 'Wächter der Katakomben', emoji: '🧟' }],
+        enemies: [{ name: 'Variablen-Fledermaus', emoji: '🦇', sprite: 'fledermaus' }, { name: 'Termratte', emoji: '🐀', sprite: 'ratte' }, { name: 'Rechenskelett', emoji: '💀', sprite: 'skelett' }, { name: 'Zahlenschleim', emoji: '🟢', sprite: 'schleim' }],
+        elites: [{ name: 'Wächter der Katakomben', emoji: '🧟', sprite: 'mumie' }],
         boss: {
-          name: 'Der Termtroll', emoji: '👹',
+          name: 'Der Termtroll', emoji: '👹', sprite: 'termtroll',
           intro: 'Der Termtroll versperrt den Weg in die Tiefe. Zeig ihm, was du über Terme gelernt hast!',
           phases: [
             { title: 'Phase 1: Werte & Texte', skills: ['termwert', 'termaufstellen'], diff: [1, 2] },
@@ -642,10 +642,10 @@
         id: 'f2', name: 'Die Klammerhöhlen', emoji: '🪨', theme: 'hoehlen',
         intro: 'Tiefer im Berg winden sich Gänge voller Klammern. Ein falsches Vorzeichen – und die Decke stürzt ein.',
         skills: ['ausmultiplizieren', 'ausklammern', 'aequivalenz', 'zusammenfassen'],
-        enemies: [{ name: 'Klammerschlange', emoji: '🐍' }, { name: 'Minusskorpion', emoji: '🦂' }, { name: 'Vorzeichengeist', emoji: '👻' }, { name: 'Netzspinne', emoji: '🕷️' }],
-        elites: [{ name: 'Steinwächter', emoji: '🗿' }],
+        enemies: [{ name: 'Klammerschlange', emoji: '🐍', sprite: 'schlange' }, { name: 'Minusskorpion', emoji: '🦂', sprite: 'skorpion' }, { name: 'Vorzeichengeist', emoji: '👻', sprite: 'geist' }, { name: 'Netzspinne', emoji: '🕷️', sprite: 'spinne' }],
+        elites: [{ name: 'Steinwächter', emoji: '🗿', sprite: 'steinwaechter' }],
         boss: {
-          name: 'Die Klammerhydra', emoji: '🐉',
+          name: 'Die Klammerhydra', emoji: '🐉', sprite: 'hydra',
           intro: 'Jeder Kopf der Hydra verlangt eine andere Klammer-Regel. Schlag alle ab!',
           phases: [
             { title: 'Phase 1: Klammern auflösen', skills: ['ausmultiplizieren', 'aequivalenz'], diff: [1, 2] },
@@ -659,10 +659,10 @@
         id: 'f3', name: 'Der Turm der Gleichungen', emoji: '🗼', theme: 'turm',
         intro: 'Ganz oben im Turm wartet der Gleichungsgolem. Auf jeder Stufe muss die Waage im Gleichgewicht bleiben.',
         skills: ['gleichung', 'gleichung_klammer', 'probe', 'fehler_finden', 'textgleichung'],
-        enemies: [{ name: 'Waagen-Kobold', emoji: '👺' }, { name: 'Spiegelgeist', emoji: '🪞' }, { name: 'Turmeule', emoji: '🦉' }, { name: 'Gleichungswolf', emoji: '🐺' }],
-        elites: [{ name: 'Wächter der Waage', emoji: '⚖️' }],
+        enemies: [{ name: 'Waagen-Kobold', emoji: '👺', sprite: 'kobold' }, { name: 'Spiegelgeist', emoji: '🪞', sprite: 'spiegel' }, { name: 'Turmeule', emoji: '🦉', sprite: 'eule' }, { name: 'Gleichungswolf', emoji: '🐺', sprite: 'wolf' }],
+        elites: [{ name: 'Wächter der Waage', emoji: '⚖️', sprite: 'waage' }],
         boss: {
-          name: 'Der Gleichungsgolem', emoji: '🤖',
+          name: 'Der Gleichungsgolem', emoji: '🤖', sprite: 'golem',
           intro: 'Der Golem besteht aus lauter Gleichungen. Bring ihn aus dem Gleichgewicht!',
           phases: [
             { title: 'Phase 1: Umformen', skills: ['gleichung', 'probe'], diff: [1, 2] },

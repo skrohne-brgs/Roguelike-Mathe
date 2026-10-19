@@ -323,7 +323,7 @@
     if (!isDungeon()) { run.map = genMap(); return; }
     const f = floor(), s = settings();
     run.dungeon = RM.dungeon.generate({
-      enemies: f.enemies.map(e => e.emoji), elite: f.elites[0].emoji, boss: f.boss.emoji,
+      enemies: f.enemies, elite: f.elites[0], boss: f.boss,
       need: +s.monsterMin || 5, quest: run.mode === 'uebung' || s.quests
     });
     run.dungeon.log.unshift(f.emoji + ' ' + f.name + ': Besiege ' + run.dungeon.need + ' Monster, dann öffnet sich das Boss-Tor ⛩️.');
@@ -639,7 +639,7 @@
   screens.bossIntro = () => {
     const b = enc.enemy;
     return hud() + '<section class="screen center story boss-intro">' +
-      '<div class="bossstage theme-' + themeOf() + '" id="bossStage"><div class="vignette"></div><div class="bossbody">' + b.emoji + '</div>' +
+      '<div class="bossstage theme-' + themeOf() + '" id="bossStage"><div class="vignette"></div><div class="bossbody">' + enemyLook(b, 170) + '</div>' +
       '<div class="banner"><b>' + b.name + '</b><small>Zwischenprüfung · ' + b.phases.length + ' Phasen</small></div></div>' +
       '<p class="lead">' + b.intro + '</p>' +
       '<div class="info-box"><b>Zwischenprüfung</b><br>Der Kampf hat ' + b.phases.length + ' Phasen mit je 3 Treffern:<ul>' +
@@ -711,6 +711,9 @@
     if (host && enc.state === 'solution') simCleanup = RM.sims.mount(host, enc.task.sim);
   };
 
+  // Gegner als gezeichnete Figur, sonst als Emoji
+  const enemyLook = (e, size, cls = '') => (e.sprite && RM.sprites.has(e.sprite) ? RM.sprites.html(e.sprite, size, cls) : e.emoji);
+
   // Kampfbühne: Held links, Gegner rechts
   function pipsHtml() {
     const total = enc.kind === 'boss' ? enc.phases.length * enc.maxHp : enc.maxHp;
@@ -725,7 +728,7 @@
       '<div class="combo" id="combo">' + (enc.combo > 1 ? '🔥 Kombo ×' + enc.combo : '') + '</div>' +
       '<div class="fighter hero" id="heroF"><span class="body">' + RM.sprites.html(run.cls, 80) + '</span><div class="shadow"></div></div>' +
       '<div class="fighter enemy" id="enemyF"><div class="aura" id="aura"></div>' + (sleeping ? '<div class="zzz">💤</div>' : '') +
-      '<span class="body' + (enc.kind === 'boss' && enc.phase > 0 ? ' rage' : '') + '" id="enemyBody">' + enc.enemy.emoji + '</span><div class="shadow"></div></div>' +
+      '<span class="body' + (enc.kind === 'boss' && enc.phase > 0 ? ' rage' : '') + '" id="enemyBody">' + enemyLook(enc.enemy, enc.kind === 'boss' ? 104 : 84) + '</span><div class="shadow"></div></div>' +
       '<div class="enemy-tag"><b>' + enc.enemy.name + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + pipsHtml() + '</div>' +
       '</div>';
   }
@@ -998,7 +1001,7 @@
   const chestStage = () => '<div class="cheststage" id="chestStage"><div class="rays"></div><div class="chest"><div class="lid"></div><div class="box"></div></div></div>';
   mounts.victory = p => { if (p.chest) RM.fx.chest(byId('chestStage')); else sfx.coin(); };
   screens.victory = p => hud() + '<section class="screen center story">' +
-    (p.chest ? chestStage() : '<div class="big-emoji">🏆</div>') + '<h2>Sieg!</h2><p class="lead">' + p.enemy.emoji + ' ' + p.enemy.name + ' ist besiegt.</p>' +
+    (p.chest ? chestStage() : '<div class="big-emoji">🏆</div>') + '<h2>Sieg!</h2><p class="lead">' + enemyLook(p.enemy, 44, 'inline') + ' ' + p.enemy.name + ' ist besiegt.</p>' +
     '<ul class="rewards">' + p.rewards.map(r => '<li>' + r + '</li>').join('') + '</ul>' +
     '<button class="btn big" data-act="toWorld">Weiter</button></section>';
 

@@ -19,7 +19,8 @@
   const SOLID = new Set(['monster', 'elite', 'boss', 'shop', 'fire', 'altar', 'board']);
 
   // ================= Erzeugung =================
-  // opts: { enemies: [emoji], elite, boss, need, quest: bool }
+  // opts: { enemies: [{emoji, sprite}], elite, boss, need, quest: bool } (Emoji-Text geht auch)
+  const look = x => (typeof x === 'string' ? { emoji: x } : { emoji: x.emoji, sprite: x.sprite });
   function generate(opts) {
     for (let k = 0; k < 300; k++) {
       const s = tryGenerate(opts);
@@ -125,14 +126,14 @@
     const roomsNoStart = R.shuffle(main.filter(r => r !== start));
     for (let k = 0; k < 8; k++) {
       const ei = R.int(0, opts.enemies.length - 1);
-      add('monster', roomsNoStart[k % roomsNoStart.length], { enemy: ei, emoji: opts.enemies[ei], cool: 0 });
+      add('monster', roomsNoStart[k % roomsNoStart.length], Object.assign({ enemy: ei, cool: 0 }, look(opts.enemies[ei])));
     }
     // Elitegegner bewacht eine Truhe
     const eliteRoom = roomsNoStart[0];
     const chest = add('chest', eliteRoom, { gold: 25, item: true }, 1);
     if (chest) {
       const nb = DIRS.map(([dx, dy]) => [chest.x + dx, chest.y + dy]).find(([x, y]) => tiles[idx(x, y)] === FLOOR && !used.has(idx(x, y)));
-      if (nb) { used.add(idx(nb[0], nb[1])); S.ents.push({ id: S.nextId++, type: 'elite', x: nb[0], y: nb[1], home: rooms.indexOf(eliteRoom), emoji: opts.elite }); }
+      if (nb) { used.add(idx(nb[0], nb[1])); S.ents.push(Object.assign({ id: S.nextId++, type: 'elite', x: nb[0], y: nb[1], home: rooms.indexOf(eliteRoom) }, look(opts.elite))); }
     }
     add('shop', roomsNoStart[1 % roomsNoStart.length]);
     add('fire', roomsNoStart[2 % roomsNoStart.length]);
@@ -144,7 +145,7 @@
     S.treasure = { x: tp[0], y: tp[1], found: false };
     add('chest', vault, { gold: 40, item: true });
     add('chest', vault, { gold: 20 });
-    S.ents.push({ id: S.nextId++, type: 'boss', x: boss.cx, y: boss.cy, home: rooms.indexOf(boss), emoji: opts.boss });
+    S.ents.push(Object.assign({ id: S.nextId++, type: 'boss', x: boss.cx, y: boss.cy, home: rooms.indexOf(boss) }, look(opts.boss)));
     const monsters = S.ents.filter(e => e.type === 'monster' || e.type === 'elite').length;
     S.need = Math.max(1, Math.min(S.need, monsters));
     return S;
@@ -516,9 +517,15 @@
       // dunkle Scheibe als Kontrast zum hellen Boden
       ctx.fillStyle = mob ? 'rgba(60, 10, 20, .55)' : 'rgba(10, 8, 16, .5)';
       ctx.beginPath(); ctx.arc(sx + ts / 2, sy + ts / 2, ts * (e.type === 'boss' ? .55 : .42), 0, 7); ctx.fill();
-      ctx.font = (e.type === 'boss' ? ts * 1.15 : ts * .78) + 'px serif';
       ctx.globalAlpha = e.used ? .35 : (V.visible[i] ? 1 : .6);
-      ctx.fillText(e.emoji || EMO[e.type], sx + ts / 2, sy + ts / 2 + 2 + bob);
+      const img = e.sprite && RM.sprites.has(e.sprite) ? RM.sprites.image(e.sprite) : null;
+      if (img && img.complete && img.naturalWidth) {
+        const sz = ts * (e.type === 'boss' ? 1.5 : e.type === 'elite' ? 1.15 : 1);
+        ctx.drawImage(img, sx + ts / 2 - sz / 2, sy + ts / 2 - sz / 2 + bob, sz, sz);
+      } else {
+        ctx.font = (e.type === 'boss' ? ts * 1.15 : ts * .78) + 'px serif';
+        ctx.fillText(e.emoji || EMO[e.type], sx + ts / 2, sy + ts / 2 + 2 + bob);
+      }
       ctx.globalAlpha = 1;
     }
     const hx = hpx - cam.x + ts / 2, hy = hpy - cam.y + ts / 2;

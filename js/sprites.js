@@ -95,10 +95,11 @@
   };
 
   RM.sprites = {
+    // weitere Figuren (z. B. Gegner) anmelden: register(id, frame => '<svg-Inhalt>')
+    register: (id, fn) => { BODIES[id] = fn; },
     has: id => !!BODIES[id],
     svg, url, image,
     html: (id, size, cls = '') => '<img class="sprite ' + cls + '" src="' + url(id) + '" width="' + size + '" height="' + size + '" alt="">',
     preload: () => Object.keys(BODIES).forEach(id => { image(id, 0); image(id, 1); })
   };
-  if (typeof Image !== 'undefined') RM.sprites.preload();
 })(window.RM);

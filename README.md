@@ -51,6 +51,8 @@ Pro Gerät gibt es **drei Spielstände**, z. B. für mehrere Schüler an einem K
 
 ## Grafik, Animationen und Klänge
 
+- **Eigene Figuren:** Spielfiguren und alle 18 Gegner sind als Vektorgrafik gezeichnet (`js/sprites.js`, `js/monsters.js`). Es gibt keine externen Bilddateien. Die Spielfiguren tragen Helm bzw. Kapuze und sind dadurch neutral. Viele Gegner tragen ein Mathe-Detail, z. B. das x auf der Fledermaus, das ± auf dem Geist oder das leuchtende Gleichheitszeichen des Golems.
+
 - **Karte:** Jede Ebene hat ihre eigene Kulisse:
   - Katakomben mit Fackeln
   - Kristallhöhlen
