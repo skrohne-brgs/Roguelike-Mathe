@@ -37,6 +37,18 @@ Pro Gerät gibt es **drei Spielstände**, z. B. für mehrere Schüler an einem K
 - **Rastplatz → Fehlerwerkstatt:** Eine Aufgabe zu einem Thema, bei dem vorher ein Fehler passiert ist, erneut lösen. Wer es schafft, bekommt +1 maximale Lebenspunkte. Lernen aus Fehlern wird so belohnt.
 - **Fortschritt:** Erfahrungspunkte bleiben über Durchgänge hinweg erhalten und schalten neue Charaktere frei (Rechenmagier mit mehr Zeit, Ritter, Händler).
 
+## Freier Dungeon (Standard) und Pfadkarte
+
+- **Freier Dungeon:** Jede Ebene wird zufällig erzeugt, mit 9 bis 10 Räumen, Gängen und Sichtbereich.
+  - **Laufen:** Ein Tipp auf ein Feld, dann läuft die Figur den kürzesten Weg dorthin. Alternativ gibt es das Steuerkreuz oder die Pfeiltasten.
+  - **Zoom:** mit zwei Fingern oder den Knöpfen ＋/－. Die gewählte Stufe merkt sich das Gerät.
+  - **Monster** bewegen sich nur, wenn die Figur einen Schritt macht. Es gibt also keinen Reaktionsdruck, und Zeit zählt nur beim Rechnen.
+  - **Boss-Tor:** Es öffnet sich erst, wenn eine Mindestanzahl Monster besiegt ist. Die Zahl stellt die Lehrkraft ein (Standard 5). Nach dem Boss (der Zwischenprüfung) führt eine Treppe zur nächsten Ebene.
+  - **Weitere Begegnungen:** Händler 🛒, Lagerfeuer 🔥 (Rastplatz mit Fehlerwerkstatt), Altar ❓ (Ereignis) und Quest-Brett 📜 (analoge Quest) führen zu den bekannten Bildschirmen. Danach geht es an derselben Stelle weiter.
+  - **Rätseltür 🚪:** Sie öffnet sich nur mit einer gelösten Aufgabe und versperrt eine Schatzkammer.
+  - **Schatzkarte 🗺️:** Sie nennt eine Koordinate, z. B. (15|21). Die Achsen sind am Rand beschriftet: x nach rechts, y nach oben.
+- **Pfadkarte:** die bisherige Karte mit Feldern. Sie bleibt als Option im Lehrkraft-Bereich erhalten („Kartenart“).
+
 ## Grafik, Animationen und Klänge
 
 - **Karte:** Jede Ebene hat ihre eigene Kulisse:
@@ -77,6 +89,8 @@ Die Bildschirmtastatur ist für Tablets gemacht; auf Laptops funktioniert auch d
 - **Zeitdruck aus:** Ruhemodus für alle Durchgänge auf diesem Gerät, z. B. als Nachteilsausgleich.
 - **Zeitfaktor** 1× / 1,5× / 2×.
 - **Schwierigkeit:** Leicht (eine Stufe leichter, erster Fehler ohne Schaden) / Normal / Schwer.
+- **Kartenart:** freier Dungeon oder Pfadkarte. **Monster bis zum Boss-Tor:** 3, 4, 5, 6 oder 8.
+- **Große Darstellung:** größere Schrift, Tasten und Dungeon-Felder, z. B. bei Sehschwäche.
 - **Klänge** an/aus und **Bewegung** normal/reduziert.
 - Analoge Quests an/aus, alle Charaktere freischalten, PIN pro Gerät ändern, Lernstand einsehen und Daten löschen.
 
@@ -147,4 +161,5 @@ Bausteine für Aufgaben (`RM.T` in `js/topics/registry.js`):
 node tests/run-tests.js            # Mathe-Kern + 400 Zufallsaufgaben je Fähigkeit und Stufe
 node tests/play-test.js 3 [ordner] # spielt 3 komplette Durchgänge im Browser (Playwright)
 node tests/slot-test.js            # Spielstände: anlegen, laden, löschen, alte Spielstände übernehmen
+# play-test.js spielt abwechselnd einen Durchgang im Dungeon und einen auf der Pfadkarte
 ```

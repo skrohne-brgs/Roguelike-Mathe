@@ -101,5 +101,36 @@ for (const topic of RM.topics) {
   }
 }
 
+// ---------- Dungeon-Erzeugung ----------
+{
+  const { W, H } = RM.dungeon;
+  const reach = (S, sx, sy, passGate) => {
+    const seen = new Set([sy * W + sx]), q = [[sx, sy]];
+    while (q.length) {
+      const [x, y] = q.shift();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy, k = ny * W + nx, t = S.tiles[k];
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H || seen.has(k) || !(t === 0 || (passGate && (t === 2 || t === 3)))) continue;
+        seen.add(k); q.push([nx, ny]);
+      }
+    }
+    return seen;
+  };
+  for (let i = 0; i < 300; i++) {
+    const S = RM.dungeon.generate({ enemies: ['🦇', '🐀'], elite: '🧟', boss: '👹', need: 5, quest: i % 2 === 0 });
+    const tag = 'Dungeon ' + i;
+    const boss = S.ents.find(e => e.type === 'boss');
+    const r0 = reach(S, S.hero.x, S.hero.y, false), rAll = reach(S, S.hero.x, S.hero.y, true);
+    assert(!r0.has(boss.y * W + boss.x), tag + ': Boss nur über das Tor erreichbar');
+    assert(rAll.has(boss.y * W + boss.x), tag + ': Boss über das Tor erreichbar');
+    assert(S.ents.every(e => S.tiles[e.y * W + e.x] === 0 && rAll.has(e.y * W + e.x)), tag + ': alle Objekte stehen erreichbar auf Boden');
+    assert(new Set(S.ents.map(e => e.y * W + e.x)).size === S.ents.length, tag + ': keine Objekte übereinander');
+    const mons = S.ents.filter(e => e.type === 'monster' || e.type === 'elite').length;
+    assert(mons >= 6 && S.need <= mons, tag + ': genug Monster für das Boss-Tor');
+    assert(S.ents.some(e => e.type === (i % 2 === 0 ? 'board' : 'altar')), tag + ': Quest-Brett nur mit Quests');
+    assert(JSON.parse(JSON.stringify(S)).tiles.length === W * H, tag + ': Zustand ist speicherbar');
+  }
+}
+
 console.log(`${passes} Prüfungen bestanden, ${failures} fehlgeschlagen.`);
 process.exit(failures ? 1 : 0);

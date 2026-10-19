@@ -6,11 +6,15 @@
   const $app = () => document.getElementById('app');
 
   // ================= Speicher =================
-  const DEFAULT_SETTINGS = { zeitdruck: 'moderat', zeitfaktor: 1, schwierigkeit: 'normal', quests: true, alleKlassen: false, pin: '', klang: false, bewegung: 'normal' };
+  const DEFAULT_SETTINGS = { zeitdruck: 'moderat', zeitfaktor: 1, schwierigkeit: 'normal', quests: true, alleKlassen: false, pin: '', klang: false, bewegung: 'normal', kartenart: 'dungeon', monsterMin: 5, gross: false, dzoom: null };
   const settings = () => Object.assign({}, DEFAULT_SETTINGS, RM.store.get('rm.settings', {}));
   const saveSettings = s => RM.store.set('rm.settings', s);
   const teacherPin = () => settings().pin || RM.CONFIG.lehrerPin;
-  const applyFx = () => { const s = settings(); RM.fx.configure({ sound: s.klang, reduced: s.bewegung === 'reduziert' }); };
+  const applyFx = () => {
+    const s = settings();
+    RM.fx.configure({ sound: s.klang, reduced: s.bewegung === 'reduziert' });
+    document.documentElement.classList.toggle('gross', !!s.gross);
+  };
   const sfx = RM.fx.sfx;
   const byId = id => document.getElementById(id);
 
@@ -78,6 +82,7 @@
     stopTimer();
     closeModal();
     RM.fx.stopMap();
+    RM.dungeon.unmount();
     if (simCleanup) { simCleanup(); simCleanup = null; }
     view = { name, params };
     $app().innerHTML = screens[name](params);
@@ -297,17 +302,96 @@
       ruhe: draft.mode === 'uebung' && draft.ruhe,
       hp: c.hp, maxHp: c.hp, gold: c.gold, items: c.items.slice(), relics: [], shield: false,
       floor: 0, map: null, pos: null, visited: [], nodeDone: true,
-      stats: {}, floorStats: {}, mistakes: [], quests: [], bosses: 0, bonusXp: 0, flags: {}, startedAt: Date.now()
+      stats: {}, floorStats: {}, mistakes: [], quests: [], bosses: 0, bonusXp: 0, flags: {}, startedAt: Date.now(),
+      kind: settings().kartenart === 'pfad' ? 'pfad' : 'dungeon'
     };
-    run.map = genMap();
+    newWorld();
     saveRun();
     show('floorIntro');
   };
 
   A.continueRun = () => {
     if (run.relicChoice) return show('floorSummary');
+    if (isDungeon()) { run.dungeon.pending = null; return show('dungeon'); }
     if (run.pos && !run.nodeDone) return enterNode(run.pos.row, run.pos.col);
     show('map');
+  };
+
+  // ================= Welt: freier Dungeon oder Pfadkarte =================
+  const isDungeon = () => !!run && run.kind === 'dungeon';
+  function newWorld() {
+    if (!isDungeon()) { run.map = genMap(); return; }
+    const f = floor(), s = settings();
+    run.dungeon = RM.dungeon.generate({
+      enemies: f.enemies.map(e => e.emoji), elite: f.elites[0].emoji, boss: f.boss.emoji,
+      need: +s.monsterMin || 5, quest: run.mode === 'uebung' || s.quests
+    });
+    run.dungeon.log.unshift(f.emoji + ' ' + f.name + ': Besiege ' + run.dungeon.need + ' Monster, dann öffnet sich das Boss-Tor ⛩️.');
+  }
+  // Zurück in die Welt; eine abgeschlossene Begegnung (Händler, Feuer, Altar, Quest) ist danach verbraucht
+  function toWorld() {
+    if (!isDungeon()) return show('map');
+    const D = run.dungeon;
+    if (D.pending && ['shop', 'fire', 'altar', 'board'].includes(D.pending.type)) RM.dungeon.resolve(D, D.pending.id, 'used');
+    D.pending = null;
+    saveRun();
+    show('dungeon');
+  }
+  A.toWorld = toWorld;
+
+  screens.dungeon = () => {
+    const f = floor();
+    return hud() + '<section class="screen dungeon-screen"><div class="floor-title">' + f.emoji + ' Ebene ' + (run.floor + 1) + ': ' + f.name + '</div>' +
+      '<div id="dungeonRoot"></div></section>';
+  };
+  mounts.dungeon = () => {
+    const s = settings();
+    RM.dungeon.mount(byId('dungeonRoot'), run.dungeon, dungeonHooks, {
+      theme: themeOf(), hero: cls().emoji, zoom: s.dzoom !== null && s.dzoom !== undefined ? s.dzoom : (s.gross ? 2 : 1)
+    });
+  };
+  const dungeonHooks = {
+    onSave: () => saveRun(),
+    onZoom: z => { const s = settings(); s.dzoom = z; saveSettings(s); },
+    onGold: (n, src, item) => {
+      const g = goldAmt(n);
+      run.gold += g;
+      let msg = '🪙 +' + g + ' Gold';
+      if (item) { const it = gainItem(); if (it) msg += ' und ' + RM.ITEMS[it].emoji + ' ' + RM.ITEMS[it].name; }
+      sfx.coin();
+      toast(msg, 'good');
+      updateHud();
+    },
+    onMap: (tx, ty, hx, hy) => {
+      sfx.select();
+      modal('<div class="big-emoji">🗺️</div><h3>Eine Schatzkarte!</h3><p>Auf der Karte steht: <b>Der Schatz liegt bei <span class="m">(' + tx + '|' + ty + ')</span></b>.</p>' +
+        '<p class="muted">Du stehst gerade bei <span class="m">(' + hx + '|' + hy + ')</span>. <span class="m"><i>x</i></span> zählt nach rechts, <span class="m"><i>y</i></span> nach oben. Das Ziel ist auf der Karte mit ✕ markiert, sobald du es gesehen hast.</p>' +
+        '<div class="row"><button class="btn" data-act="closeModal">Los geht’s</button></div>');
+    },
+    onStairs: () => advanceFloor(),
+    onEncounter: e => {
+      const D = run.dungeon, f = floor();
+      if (e.type === 'door') {
+        return eventTask({ skills: f.skills, diff: [2, 2], title: 'Rätseltür', emoji: '🚪' }, win => {
+          if (win) RM.dungeon.openDoor(D, e.x, e.y);
+          else D.log.unshift('🚪 Die Tür bleibt verschlossen. Versuch es noch einmal!');
+          saveRun();
+          show('dungeon');
+        });
+      }
+      D.pending = { id: e.id, type: e.type };
+      saveRun();
+      const k = D.kills;
+      switch (e.type) {
+        case 'monster': return startCombat('battle', { enemy: f.enemies[e.enemy] || R.pick(f.enemies), diff: k < 2 ? [1, 1] : k < 4 ? [1, 2] : [2, 2], hp: k < 2 ? 2 : 3 });
+        case 'elite': return startCombat('elite');
+        case 'boss': return startCombat('boss');
+        case 'shop': return openShop();
+        case 'fire': return show('rest');
+        case 'altar': return startEvent();
+        case 'board': return startQuest();
+      }
+    }
   };
 
   // ================= Karte =================
@@ -363,7 +447,8 @@
       '<div class="big-emoji">' + f.emoji + '</div><p class="muted">Ebene ' + (run.floor + 1) + ' von ' + topic().floors.length + '</p>' +
       '<h2>' + f.name + '</h2><p class="lead">' + f.intro + '</p>' +
       '<p class="muted">Themen: ' + f.skills.map(s => topic().skills[s].label).join(' · ') + '</p>' +
-      '<button class="btn big" data-act="go" data-to="map">Betreten</button></section>';
+      (isDungeon() ? '<p class="info-box">⚔️ Besiege mindestens <b>' + run.dungeon.need + ' Monster</b>, dann öffnet sich das Tor ⛩️ zum Boss. Tippe auf ein Feld, um dorthin zu laufen.</p>' : '') +
+      '<button class="btn big" data-act="toWorld">Betreten</button></section>';
   };
 
   // Karte als Koordinatengitter: Spalte 0–6, Reihe 0–6 (Boss in Reihe 6)
@@ -535,17 +620,17 @@
     run.nodeDone = true;
     run.shop = null;
     saveRun();
-    show('map');
+    toWorld();
   }
   A.completeNode = completeNode;
 
   // ================= Kampf =================
-  function startCombat(kind) {
-    const f = floor(), row = run.pos.row;
+  function startCombat(kind, o = {}) {
+    const f = floor(), row = run.pos ? run.pos.row : 0;
     const base = { topic: topic(), kind, combo: 0, euleUsed: false };
     if (kind === 'boss') enc = Object.assign(base, { enemy: f.boss, phases: f.boss.phases, phase: 0, hp: 3 });
     else if (kind === 'elite') enc = Object.assign(base, { enemy: R.pick(f.elites), skills: f.skills, diff: [2, 3], hp: 4 });
-    else enc = Object.assign(base, { enemy: R.pick(f.enemies), skills: f.skills, diff: row <= 1 ? [1, 1] : row <= 3 ? [1, 2] : [2, 2], hp: row <= 1 ? 2 : 3 });
+    else enc = Object.assign(base, { enemy: o.enemy || R.pick(f.enemies), skills: f.skills, diff: o.diff || (row <= 1 ? [1, 1] : row <= 3 ? [1, 2] : [2, 2]), hp: o.hp || (row <= 1 ? 2 : 3) });
     enc.maxHp = enc.hp;
     if (kind === 'boss') show('bossIntro');
     else nextTask();
@@ -905,6 +990,7 @@
       if (rel) { gainRelic(rel); rewards.push(RM.RELICS[rel].emoji + ' Relikt: <b>' + RM.RELICS[rel].name + '</b> – ' + RM.RELICS[rel].desc); }
     }
     run.nodeDone = true;
+    if (isDungeon() && run.dungeon.pending) { RM.dungeon.resolve(run.dungeon, run.dungeon.pending.id, 'defeated'); run.dungeon.pending = null; }
     saveRun();
     show('victory', { rewards, enemy: enc.enemy, chest: enc.kind === 'elite' });
   }
@@ -914,7 +1000,7 @@
   screens.victory = p => hud() + '<section class="screen center story">' +
     (p.chest ? chestStage() : '<div class="big-emoji">🏆</div>') + '<h2>Sieg!</h2><p class="lead">' + p.enemy.emoji + ' ' + p.enemy.name + ' ist besiegt.</p>' +
     '<ul class="rewards">' + p.rewards.map(r => '<li>' + r + '</li>').join('') + '</ul>' +
-    '<button class="btn big" data-act="go" data-to="map">Weiter</button></section>';
+    '<button class="btn big" data-act="toWorld">Weiter</button></section>';
 
   function bossDefeated() {
     const g = goldAmt(40);
@@ -924,6 +1010,7 @@
     for (let i = 0; i < 3; i++) { const r = randomRelic(choice); if (r) choice.push(r); }
     run.relicChoice = choice;
     run.nodeDone = true;
+    if (isDungeon() && run.dungeon.pending) { RM.dungeon.resolve(run.dungeon, run.dungeon.pending.id, 'defeated'); run.dungeon.pending = null; }
     saveRun();
     show('floorSummary');
   }
@@ -977,19 +1064,26 @@
 
   mounts.floorSummary = () => RM.fx.chest(byId('chestStage'));
   screens.relicChoice = () => {
-    if (!run.relicChoice.length) { setTimeout(advanceFloor, 0); return ''; }
+    if (!run.relicChoice.length) { setTimeout(afterRelic, 0); return ''; }
     return hud() + '<section class="screen center">' +
       '<h2>🎁 Wähle ein Relikt</h2><p class="muted">Relikte wirken bis zum Ende dieses Abenteuers.</p><div class="cards three">' +
       run.relicChoice.map(id => '<button class="card choice" data-act="pickRelic" data-id="' + id + '"><div class="card-emoji">' + RM.RELICS[id].emoji + '</div><b>' + RM.RELICS[id].name + '</b><small>' + RM.RELICS[id].desc + '</small></button>').join('') +
       '</div></section>';
   };
-  A.pickRelic = d => { gainRelic(d.id); advanceFloor(); };
+  A.pickRelic = d => { gainRelic(d.id); afterRelic(); };
+  function afterRelic() {
+    if (!isDungeon()) return advanceFloor();
+    run.relicChoice = null;
+    saveRun();
+    show('dungeon');
+    toast('🪜 Eine Treppe führt nach unten – betritt sie, um weiterzugehen.', 'good');
+  }
 
   function advanceFloor() {
     run.relicChoice = null;
     if (run.floor >= topic().floors.length - 1) return finishRun(true);
     run.floor++;
-    run.map = genMap();
+    newWorld();
     run.pos = null;
     run.visited = [];
     run.nodeDone = true;
@@ -1126,7 +1220,7 @@
     show('result', { emoji, title, text });
   }
   screens.result = p => hud() + '<section class="screen center story"><div class="big-emoji">' + p.emoji + '</div><h2>' + p.title + '</h2><p class="lead">' + p.text + '</p>' +
-    '<button class="btn big" data-act="go" data-to="map">Weiter</button></section>';
+    '<button class="btn big" data-act="toWorld">Weiter</button></section>';
 
   // Schaden außerhalb eines Kampfes; bei Niederlage endet der Durchgang
   function hurtOutside(n) {
@@ -1315,6 +1409,9 @@
       '<div class="setting"><div><b>Analoge Quests im Klassenmodus</b><small>Wirkt ab der nächsten Ebene bzw. dem nächsten Durchgang.</small></div><div class="segs">' + opt('quests', true, 'An') + opt('quests', false, 'Aus') + '</div></div>' +
       '<div class="setting"><div><b>Klänge</b><small>Im Browser erzeugt, ohne Sounddateien. Schüler können sie im Pause-Menü umschalten.</small></div><div class="segs">' + opt('klang', true, 'An') + opt('klang', false, 'Aus') + '</div></div>' +
       '<div class="setting"><div><b>Bewegung</b><small>„Reduziert“ schaltet Animationen weitgehend ab, z. B. bei Reizempfindlichkeit. Gilt automatisch, wenn das Gerät „Bewegung reduzieren“ nutzt.</small></div><div class="segs">' + opt('bewegung', 'normal', 'Normal') + opt('bewegung', 'reduziert', 'Reduziert') + '</div></div>' +
+      '<div class="setting"><div><b>Kartenart</b><small>Freier Dungeon zum Erkunden oder Pfadkarte mit Feldern. Gilt ab dem nächsten Abenteuer.</small></div><div class="segs">' + opt('kartenart', 'dungeon', 'Freier Dungeon') + opt('kartenart', 'pfad', 'Pfadkarte') + '</div></div>' +
+      '<div class="setting"><div><b>Monster bis zum Boss-Tor</b><small>So viele Monster müssen im Dungeon besiegt sein, bevor sich das Tor zum Boss öffnet. Gilt ab der nächsten Ebene.</small></div><div class="segs">' + [3, 4, 5, 6, 8].map(n => opt('monsterMin', n, String(n))).join('') + '</div></div>' +
+      '<div class="setting"><div><b>Große Darstellung</b><small>Größere Schrift, Tasten und Dungeon-Felder auf diesem Gerät, z. B. bei Sehschwäche.</small></div><div class="segs">' + opt('gross', true, 'An') + opt('gross', false, 'Aus') + '</div></div>' +
       '<div class="setting"><div><b>Alle Charaktere freischalten</b></div><div class="segs">' + opt('alleKlassen', true, 'An') + opt('alleKlassen', false, 'Aus') + '</div></div>' +
       '<div class="setting"><div><b>PIN für dieses Gerät ändern</b><small>Standard-PIN steht in js/config.js.</small></div><div class="segs"><input id="newPin" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="neue PIN"><button class="btn small" data-act="setPin">Speichern</button></div></div>' +
       '<div class="row"><button class="btn ghost" data-act="go" data-to="progress">📊 Lernstand auf diesem Gerät</button><button class="btn danger" data-act="resetAll">Alle Spieldaten löschen</button></div>' +
@@ -1323,7 +1420,8 @@
   A.setSetting = d => {
     const s = settings();
     let v = d.v;
-    if (v === 'true') v = true; else if (v === 'false') v = false; else if (d.k === 'zeitfaktor') v = +v;
+    if (v === 'true') v = true; else if (v === 'false') v = false; else if (d.k === 'zeitfaktor' || d.k === 'monsterMin') v = +v;
+    if (d.k === 'gross') s.dzoom = null;
     s[d.k] = v;
     saveSettings(s);
     applyFx();
@@ -1406,7 +1504,8 @@
 
   screens.help = () => '<section class="screen narrow help"><h2>❔ Spielanleitung</h2>' +
     '<h3>Das Ziel</h3><p>Kämpfe dich durch drei Ebenen voller Mathe-Monster. Am Ende jeder Ebene wartet ein Boss – eine Zwischenprüfung zum Thema der Ebene.</p>' +
-    '<h3>Die Karte</h3><p>Du wählst selbst deinen Weg: ⚔️ Gegner, 💀 Elitegegner (schwerer, aber mit Relikt), ❓ Ereignisse, 🛒 Händler, 🔥 Rastplätze und 📜 Quests. Tippe ein Feld einmal an, um zu sehen, was dort wartet, und ein zweites Mal (oder „Betreten“), um loszugehen. Weiter entfernte Felder liegen im Nebel.</p>' +
+    '<h3>Der Dungeon</h3><p>Tippe auf ein Feld, und deine Figur läuft dorthin (oder nutze das Steuerkreuz bzw. die Pfeiltasten). Mit zwei Fingern oder den Tasten ＋/－ zoomst du. Monster bewegen sich nur, wenn du einen Schritt machst. Besiege genug Monster, dann öffnet sich das Tor ⛩️ zum Boss. Nach dem Boss führt eine Treppe 🪜 nach unten. Eine Schatzkarte 🗺️ verrät dir eine Koordinate – <span class="m"><i>x</i></span> zählt nach rechts, <span class="m"><i>y</i></span> nach oben.</p>' +
+    '<h3>Die Pfadkarte</h3><p>(wenn deine Lehrkraft sie eingestellt hat) ' + 'Du wählst selbst deinen Weg: ⚔️ Gegner, 💀 Elitegegner (schwerer, aber mit Relikt), ❓ Ereignisse, 🛒 Händler, 🔥 Rastplätze und 📜 Quests. Tippe ein Feld einmal an, um zu sehen, was dort wartet, und ein zweites Mal (oder „Betreten“), um loszugehen. Weiter entfernte Felder liegen im Nebel.</p>' +
     '<h3>Kämpfe</h3><ul><li>Jede richtige Antwort trifft den Gegner.</li><li>Eine falsche Antwort kostet 1 ❤️ – du hast aber einen zweiten Versuch (mit Tipp).</li>' +
     '<li>Ist auch der zweite Versuch falsch, kostet das noch 1 ❤️ und du siehst den Lösungsweg.</li>' +
     '<li>Nach jedem gewonnenen Kampf erholst du dich um 1 ❤️.</li>' +

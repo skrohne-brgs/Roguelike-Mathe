@@ -170,6 +170,40 @@ small { display: block; color: var(--muted); font-size: .82rem; font-weight: nor
 .pill.r1 { color: var(--good); } .pill.r2 { color: var(--warn); } .pill.r3 { color: var(--bad); }
 .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; color: var(--muted); font-size: .9rem; }
 
+/* ---------- Freier Dungeon ---------- */
+.dgame { position: relative; border-radius: 16px; overflow: hidden; border: 2px solid var(--line); background: #0b0910; max-width: 1000px; margin: 0 auto; }
+#dview { display: block; width: 100%; height: clamp(300px, calc(100vh - 330px), 640px); touch-action: none; cursor: pointer; }
+.dhud { position: absolute; left: 0; right: 0; top: 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 8px 10px; pointer-events: none;
+  background: linear-gradient(rgba(11, 9, 16, .85), rgba(11, 9, 16, 0)); font-weight: 700; font-variant-numeric: tabular-nums; }
+.dchip { background: rgba(38, 32, 54, .92); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.dchip.goal.done { border-color: var(--good); color: var(--good); }
+.dchip.hint { color: var(--accent2); }
+.dmini { position: absolute; right: 10px; bottom: 10px; width: 150px; height: 106px; border: 1px solid var(--line); border-radius: 8px; background: rgba(11, 9, 16, .8); pointer-events: none; }
+.dzoom { position: absolute; right: 10px; top: 50px; display: grid; gap: 6px; }
+.zbtn { width: 48px; height: 48px; border-radius: 12px; border: 2px solid var(--line); background: rgba(38, 32, 54, .92); color: var(--text); font-size: 1.5rem; font-weight: 700; cursor: pointer; }
+.zbtn:focus-visible { outline: 3px solid var(--blue); }
+.dflash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+.dflash.on { animation: dflash .35s ease-out; }
+@keyframes dflash { 0% { opacity: 0; } 40% { opacity: .85; } 100% { opacity: 1; background: #14111c; } }
+.dbelow { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; margin: 12px auto 0; max-width: 1000px; align-items: start; }
+.dpad { display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(3, 56px); gap: 6px; }
+.dpad button { background: var(--panel2); border: 2px solid var(--line); border-radius: 12px; color: var(--text); font-size: 1.4rem; cursor: pointer; }
+.dpad button:active { background: var(--panel); }
+.dpad .c { font-size: .75rem; font-weight: 700; }
+.dlog { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; min-height: 180px; display: grid; gap: 4px; align-content: start; font-size: .95rem; min-width: 0; }
+.dlog div { color: var(--muted); }
+.dlog div:first-child { color: var(--text); font-weight: 600; }
+
+/* ---------- Große Darstellung (Lehrkraft-Einstellung) ---------- */
+html.gross body { font-size: 21px; }
+html.gross .task-prompt { font-size: 1.45rem; }
+html.gross .answer-display { font-size: 2.2rem; min-height: 76px; }
+html.gross .key { min-height: 68px; font-size: 1.7rem; }
+html.gross .choice-btn { font-size: 1.45rem; min-height: 72px; }
+html.gross .dpad { grid-template-columns: repeat(3, 68px); grid-template-rows: repeat(3, 68px); }
+html.gross .zbtn { width: 58px; height: 58px; }
+html.gross .dchip { font-size: 1.05rem; }
+
 /* ---------- Kampfbühne ---------- */
 .arena { position: relative; height: 170px; border-radius: 18px; overflow: hidden; border: 2px solid var(--line); margin: 6px auto 10px; max-width: 760px;
   background: linear-gradient(#1d1730, #2a2038 62%, #3a2c26 62%, #251c18); }
@@ -423,6 +457,9 @@ small { display: block; color: var(--muted); font-size: .82rem; font-weight: nor
   .keypad { gap: 6px; }
   .task-prompt { font-size: 1.1rem; }
   .enemy-emoji { font-size: 3rem; }
+  .dbelow { grid-template-columns: 1fr; }
+  .dpad { justify-self: center; }
+  .dmini { width: 110px; height: 78px; }
   .arena { height: 140px; }
   .fighter .body { font-size: 44px; } .fighter.enemy .body { font-size: 50px; }
   .bossbody { font-size: 80px; }

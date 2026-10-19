@@ -24,12 +24,14 @@ const url = 'file://' + path.join(__dirname, '..', 'index.html');
     const mode = r % 2 ? 'uebung' : 'klasse';
     if (!(await page.$('[data-act="newInSlot"]'))) { await click('[data-act="deleteSlot"]'); await click('[data-act="deleteSlotYes"]'); }
     await click('[data-act="newInSlot"]');
+    const kind = (process.env.KIND || '') || (r % 2 ? 'pfad' : 'dungeon');
+    await page.evaluate(k => { const s = JSON.parse(localStorage.getItem('rm.settings') || '{}'); s.kartenart = k; localStorage.setItem('rm.settings', JSON.stringify(s)); }, kind);
     await page.fill('#nick', 'Testheld' + r);
     await click(`[data-act="draft"][data-v="${mode}"]`);
     if (!seen.has('newrun')) { seen.add('newrun'); await shot('01-neues-abenteuer'); }
     await click('[data-act="startRun"]');
-    let steps = 0;
-    while (steps++ < 600) {
+    let steps = 0, stuck = 0;
+    while (steps++ < 1500) {
       await page.waitForTimeout(30);
       const v = await view();
       if (!seen.has(v)) { seen.add(v); await shot('v-' + v); }
@@ -68,7 +70,12 @@ const url = 'file://' + path.join(__dirname, '..', 'index.html');
       if (v === 'map') {
         if (await page.evaluate(() => RM.debug.walking)) { await page.waitForTimeout(200); continue; }
         const nodes = await page.$$('.node.avail');
-        if (!nodes.length) { await page.waitForTimeout(200); continue; }
+        if (!nodes.length) {
+          stuck++;
+          if (stuck === 20) { console.log('Pfadkarte: kein Feld verfügbar', await page.evaluate(() => JSON.stringify({ pos: RM.debug.run.pos, done: RM.debug.run.nodeDone, kind: RM.debug.run.kind }))); await shot('haengt-pfad'); }
+          await page.waitForTimeout(200); continue;
+        }
+        stuck = 0;
         await nodes[Math.floor(Math.random() * nodes.length)].click();
         if (!seen.has('karte-vorschau')) { seen.add('karte-vorschau'); await shot('karte-vorschau'); }
         const go = await page.$('[data-act="mapGo"]');
@@ -76,7 +83,39 @@ const url = 'file://' + path.join(__dirname, '..', 'index.html');
         await page.waitForTimeout(1000);
         continue;
       }
-      if (['floorIntro', 'victory', 'result', 'floorSummary'].includes(v)) { await click('[data-act="go"]'); continue; }
+      if (['floorIntro', 'victory', 'result', 'floorSummary'].includes(v)) { await click('[data-act="toWorld"], [data-act="go"]'); continue; }
+      if (v === 'dungeon') {
+        if (await page.$('.modal-bg [data-act="closeModal"]')) { await click('.modal-bg [data-act="closeModal"]'); continue; }
+        const go = await page.evaluate(() => {
+          const T = RM.dungeon.test, S = T.state, W = RM.dungeon.W, H = RM.dungeon.H;
+          if (!S || T.busy) return null;
+          const reachable = e => T.canReach(e.x, e.y);
+          const st = S.ents.find(e => e.type === 'stairs' && !e.gone);
+          if (st) return [st.x, st.y];
+          const ms = S.ents.filter(e => !e.gone && (e.type === 'monster' || e.type === 'elite') && T.visible[e.y * W + e.x] && reachable(e));
+          if (ms.length) return [ms[0].x, ms[0].y];
+          if (S.kills >= S.need) {
+            const bo = S.ents.find(e => e.type === 'boss' && !e.gone);
+            if (bo && S.explored[bo.y * W + bo.x] && reachable(bo)) return [bo.x, bo.y];
+            if (S.explored[S.gate[1] * W + S.gate[0]] && T.canReach(S.gate[0], S.gate[1]) && S.tiles[S.gate[1] * W + S.gate[0]] === 3) return S.gate;
+          }
+          const fr = [];
+          for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+            const i = y * W + x;
+            if (S.explored[i] && S.tiles[i] === 0 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !S.explored[(y + dy) * W + x + dx]) && !(x === S.hero.x && y === S.hero.y) && T.canReach(x, y)) fr.push([x, y, Math.abs(x - S.hero.x) + Math.abs(y - S.hero.y)]);
+          }
+          fr.sort((a, b) => a[2] - b[2]);
+          if (fr.length) return fr[0].slice(0, 2);
+          if (S.tiles[S.door[1] * W + S.door[0]] === 2) return S.door;
+          const left = S.ents.filter(e => !e.gone && (e.type === 'monster' || e.type === 'elite') && reachable(e));
+          return left.length ? [left[0].x, left[0].y] : null;
+        });
+        if (!go) { await page.waitForTimeout(300); continue; }
+        await page.evaluate(([x, y]) => RM.dungeon.test.walkTo(x, y), go);
+        if (!seen.has('dungeon-lauf')) { await page.waitForTimeout(400); seen.add('dungeon-lauf'); await shot('dungeon-lauf'); }
+        await page.waitForTimeout(900);
+        continue;
+      }
       if (v === 'bossIntro') { await click('[data-act="bossStart"]'); continue; }
       if (v === 'relicChoice') { await click('[data-act="pickRelic"]'); continue; }
       if (v === 'shop') { const b = await page.$('[data-act="buyItem"], [data-act="buyHeal"]'); if (b) { await b.click(); continue; } await click('[data-act="completeNode"]'); continue; }
@@ -89,7 +128,7 @@ const url = 'file://' + path.join(__dirname, '..', 'index.html');
       throw new Error('Unbekannter Bildschirm: ' + v);
     }
     const res = await page.evaluate(() => { const m = JSON.parse(localStorage.getItem('rm.meta')); return m.runs[0]; });
-    console.log(`Durchgang ${r + 1} (${mode}): ${res.victory ? 'Sieg' : 'besiegt auf Ebene ' + res.floor}, Schritte ${steps}`);
+    console.log(`Durchgang ${r + 1} (${mode}, ${kind}): ${res.victory ? 'Sieg' : 'besiegt auf Ebene ' + res.floor}, Schritte ${steps}`);
     await click('[data-act="go"][data-to="title"]');
   }
   // Trainingsraum, Lernstand, Lehrkraft-Bereich
