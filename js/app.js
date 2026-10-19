@@ -224,7 +224,7 @@
     const c = RM.CLASSES[r.cls], tp = RM.getTopic(r.topicId);
     return '<div class="slot-card">' + head +
       '<button class="slot-del" data-act="deleteSlot" data-i="' + i + '" aria-label="Spielstand ' + (i + 1) + ' löschen">🗑️</button></div>' +
-      '<div class="slot-name">' + c.emoji + ' ' + esc(r.name) + '</div>' +
+      '<div class="slot-name">' + RM.sprites.html(r.cls, 34, 'inline') + ' ' + esc(r.name) + '</div>' +
       '<small>Jg. ' + tp.grade + ': ' + esc(tp.title) + ' · ' + (r.mode === 'klasse' ? 'Klassenmodus' : 'Übungsmodus') + '</small>' +
       '<div class="slot-stats">Ebene ' + (r.floor + 1) + '/' + tp.floors.length + ' · ❤️ ' + r.hp + '/' + r.maxHp + ' · 🪙 ' + r.gold + '</div>' +
       (r.updatedAt ? '<small>zuletzt gespielt: ' + dateStr(new Date(r.updatedAt).toISOString()) + '</small>' : '') +
@@ -268,7 +268,7 @@
       '<div class="card-emoji">' + emoji + '</div><b>' + title + '</b><small>' + text + '</small></button>';
     const classes = Object.entries(RM.CLASSES).map(([id, c]) => {
       const ok = classUnlocked(c, m);
-      return card('cls', id, ok ? c.emoji : '🔒', c.name, ok ? c.desc + '<br>❤️ ' + c.hp + ' · 🪙 ' + c.gold : c.unlock.text, !ok);
+      return card('cls', id, ok ? RM.sprites.html(id, 64) : '🔒', c.name, ok ? c.desc + '<br>❤️ ' + c.hp + ' · 🪙 ' + c.gold : c.unlock.text, !ok);
     }).join('');
     const topics = RM.topics.map(t => card('topicId', t.id, '📚', 'Jg. ' + t.grade + ': ' + t.title, t.description)).join('');
     let ruhe = '';
@@ -347,7 +347,7 @@
   mounts.dungeon = () => {
     const s = settings();
     RM.dungeon.mount(byId('dungeonRoot'), run.dungeon, dungeonHooks, {
-      theme: themeOf(), hero: cls().emoji, zoom: s.dzoom !== null && s.dzoom !== undefined ? s.dzoom : (s.gross ? 2 : 1)
+      theme: themeOf(), hero: cls().emoji, heroId: run.cls, zoom: s.dzoom !== null && s.dzoom !== undefined ? s.dzoom : (s.gross ? 2 : 1)
     });
   };
   const dungeonHooks = {
@@ -475,7 +475,7 @@
       '<div class="mapbox" id="mapbox"><canvas id="mapCanvas"></canvas>' +
       '<svg class="paths" id="mapSvg" viewBox="0 0 420 680" preserveAspectRatio="none" aria-hidden="true"></svg>' +
       '<div class="fog" id="fog"></div><div class="lantern" id="lantern"></div><div id="mapNodes"></div>' +
-      '<div class="hero-token" id="heroToken">' + cls().emoji + '</div></div>' +
+      '<div class="hero-token" id="heroToken">' + RM.sprites.html(run.cls, 44) + '</div></div>' +
       '<div class="preview" id="mapPreview" aria-live="polite"></div>' +
       '<div class="legend">' + legend + '</div></section>';
   };
@@ -723,7 +723,7 @@
     return '<div class="arena theme-' + themeOf() + ' ' + enc.kind + '" id="arena">' +
       '<div class="torch" style="left:7%"></div><div class="torch" style="left:93%"></div><div class="floorline"></div>' +
       '<div class="combo" id="combo">' + (enc.combo > 1 ? '🔥 Kombo ×' + enc.combo : '') + '</div>' +
-      '<div class="fighter hero" id="heroF"><span class="body">' + cls().emoji + '</span><div class="shadow"></div></div>' +
+      '<div class="fighter hero" id="heroF"><span class="body">' + RM.sprites.html(run.cls, 80) + '</span><div class="shadow"></div></div>' +
       '<div class="fighter enemy" id="enemyF"><div class="aura" id="aura"></div>' + (sleeping ? '<div class="zzz">💤</div>' : '') +
       '<span class="body' + (enc.kind === 'boss' && enc.phase > 0 ? ' rage' : '') + '" id="enemyBody">' + enc.enemy.emoji + '</span><div class="shadow"></div></div>' +
       '<div class="enemy-tag"><b>' + enc.enemy.name + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + pipsHtml() + '</div>' +
@@ -1123,7 +1123,7 @@
       (q.skipped ? 'übersprungen' : '⭐'.repeat(q.stars) + (q.stars === 0 ? 'nicht geschafft' : '') + (q.teacher ? ' (Lehrkraft)' : ' (Selbsteinschätzung)')) + '</li>').join('') + '</ul>' : '';
     return '<section class="screen narrow report">' +
       '<div class="center"><div class="big-emoji">' + (s.victory ? '🏆' : '💀') + '</div><h2>' + (s.victory ? 'Sieg! Alle Ebenen geschafft!' : 'Das Abenteuer ist vorbei') + '</h2>' +
-      '<p class="lead">' + esc(s.name) + ' · ' + RM.CLASSES[s.cls].emoji + ' ' + RM.CLASSES[s.cls].name + '</p>' +
+      '<p class="lead">' + RM.sprites.html(s.cls, 40, 'inline') + ' ' + esc(s.name) + ' · ' + RM.CLASSES[s.cls].name + '</p>' +
       '<p class="muted">' + dateStr(s.date) + ' · ' + (s.mode === 'klasse' ? 'Klassenmodus' : 'Übungsmodus') + ' · Jg. ' + tp.grade + ': ' + tp.title + ' · erreicht: Ebene ' + s.floor + ' von ' + s.floors + '</p></div>' +
       '<div class="kpis"><div><b>' + ok + ' / ' + total + '</b><small>Aufgaben richtig</small></div><div><b>' + (total ? Math.round(ok / total * 100) : 0) + ' %</b><small>Quote</small></div><div><b>+' + s.xp + '</b><small>Erfahrung</small></div></div>' +
       '<h3>Ergebnisse nach Themen</h3>' + statsTable(s.stats, tp) + quests + recommendations(s.stats, tp) +

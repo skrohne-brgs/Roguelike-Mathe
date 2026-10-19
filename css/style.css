@@ -204,6 +204,15 @@ html.gross .dpad { grid-template-columns: repeat(3, 68px); grid-template-rows: r
 html.gross .zbtn { width: 58px; height: 58px; }
 html.gross .dchip { font-size: 1.05rem; }
 
+/* ---------- Spielfiguren ---------- */
+.sprite { display: inline-block; vertical-align: middle; image-rendering: auto; }
+.sprite.inline { margin: -6px 2px -4px 0; }
+.fighter.hero .body { font-size: 0; }
+.fighter.hero .sprite { width: 80px; height: 80px; }
+.hero-token .sprite { width: 100%; height: auto; }
+.hero-token { width: 11%; }
+.card-emoji .sprite { width: 64px; height: 64px; }
+
 /* ---------- Kampfbühne ---------- */
 .arena { position: relative; height: 170px; border-radius: 18px; overflow: hidden; border: 2px solid var(--line); margin: 6px auto 10px; max-width: 760px;
   background: linear-gradient(#1d1730, #2a2038 62%, #3a2c26 62%, #251c18); }
@@ -218,7 +227,7 @@ html.gross .dchip { font-size: 1.05rem; }
 @keyframes flicker { 0% { opacity: .7; transform: translate(-50%, -50%) scale(.95); } 40% { opacity: 1; } 100% { opacity: .8; transform: translate(-50%, -50%) scale(1.06); } }
 .fighter { position: absolute; bottom: 28%; transform: translateX(-50%); text-align: center; }
 .fighter.hero { left: 22%; }
-.fighter.enemy { left: 74%; }
+.fighter.enemy { left: 74%; display: block; margin: 0; }
 .fighter .body { font-size: 56px; line-height: 1; display: inline-block; animation: idle 2.4s ease-in-out infinite; filter: drop-shadow(0 6px 6px rgba(0, 0, 0, .6)); }
 .fighter.enemy .body { font-size: 64px; animation-delay: -1.2s; }
 .arena.boss .fighter.enemy .body { font-size: 76px; }
@@ -462,6 +471,7 @@ html.gross .dchip { font-size: 1.05rem; }
   .dmini { width: 110px; height: 78px; }
   .arena { height: 140px; }
   .fighter .body { font-size: 44px; } .fighter.enemy .body { font-size: 50px; }
+  .fighter.hero .sprite { width: 56px; height: 56px; }
   .bossbody { font-size: 80px; }
   .stats { font-size: .85rem; }
   .hud { gap: 8px; }
@@ -469,6 +479,7 @@ html.gross .dchip { font-size: 1.05rem; }
 html.calm *, html.calm *::before, html.calm *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 @media (max-height: 860px) and (min-width: 701px) {
   .arena { height: 140px; }
+  .fighter.hero .sprite { width: 64px; height: 64px; }
   .fighter .body { font-size: 46px; } .fighter.enemy .body { font-size: 52px; } .arena.boss .fighter.enemy .body { font-size: 60px; }
   .key { min-height: 50px; }
   .task-card { padding: 14px 16px; }

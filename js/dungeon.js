@@ -168,6 +168,7 @@
     const cv = root.querySelector('#dview'), mini = root.querySelector('#dmini');
     V = {
       root, S, hooks, theme, cv, ctx: cv.getContext('2d'), mini, mctx: mini.getContext('2d'), hero: opts.hero,
+      heroId: opts.heroId, face: 1,
       zoom: RM.clamp(opts.zoom, 0, ZOOMS.length - 1), path: [], walkTimer: null, busy: false, raf: 0,
       px: S.hero.x * BASE, py: S.hero.y * BASE, cam: { x: 0, y: 0 }, vw: 0, vh: 0, bursts: [], visible: new Uint8Array(W * H),
       pointers: new Map(), pinch: null, scale: 1
@@ -310,6 +311,7 @@
     }
     if (e && SOLID.has(e.type) && !e.used) { encounter(e); return false; }
     S.hero.x = nx; S.hero.y = ny;
+    if (dx) V.face = dx < 0 ? -1 : 1;
     RM.fx.sfx.step();
     if (e) pickup(e);
     if (!V || V.busy) return false; // z. B. Treppe: das Spiel hat bereits gewechselt
@@ -523,9 +525,18 @@
     const lg = ctx.createRadialGradient(hx, hy, 10, hx, hy, ts * 6.5);
     lg.addColorStop(0, theme.light + '.18)'); lg.addColorStop(1, theme.light + '0)');
     ctx.fillStyle = lg; ctx.fillRect(hx - ts * 7, hy - ts * 7, ts * 14, ts * 14);
-    ctx.fillStyle = 'rgba(0, 0, 0, .4)'; ctx.beginPath(); ctx.ellipse(hx, hy + ts * .34, ts * .3, ts * .1, 0, 0, 7); ctx.fill();
-    ctx.font = (ts * .85) + 'px serif';
-    ctx.fillText(V.hero, hx, hy - 1);
+    ctx.fillStyle = 'rgba(0, 0, 0, .45)'; ctx.beginPath(); ctx.ellipse(hx, hy + ts * .4, ts * .3, ts * .1, 0, 0, 7); ctx.fill();
+    // Spielfigur: zwei Laufbilder, schaut in Laufrichtung
+    const moving = Math.abs(S.hero.x * BASE - V.px) + Math.abs(S.hero.y * BASE - V.py) > 2 || V.path.length > 0;
+    const img = RM.sprites && RM.sprites.has(V.heroId) ? RM.sprites.image(V.heroId, moving && !calm ? Math.floor(now / 140) % 2 : 0) : null;
+    if (img && img.complete && img.naturalWidth) {
+      ctx.save(); ctx.translate(hx, hy); ctx.scale(V.face, 1);
+      ctx.drawImage(img, -ts * .62, -ts * .8, ts * 1.24, ts * 1.24);
+      ctx.restore();
+    } else {
+      ctx.font = (ts * .85) + 'px serif';
+      ctx.fillText(V.hero, hx, hy - 1);
+    }
     if (V.path.length) {
       ctx.fillStyle = 'rgba(255, 207, 122, .6)';
       V.path.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x * ts - cam.x + ts / 2, y * ts - cam.y + ts / 2, Math.max(3, ts * .08), 0, 7); ctx.fill(); });
