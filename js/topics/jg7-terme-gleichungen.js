@@ -618,6 +618,7 @@
     id: 'jg7-terme-gleichungen',
     title: 'Terme & Gleichungen',
     grade: 7,
+    codePrefix: 'TG',
     description: 'Termwerte, Terme aufstellen und umformen, Klammern, lineare Gleichungen und Sachaufgaben.',
     skills,
     floors: [
