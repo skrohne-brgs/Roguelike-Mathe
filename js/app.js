@@ -18,7 +18,7 @@
   const sfx = RM.fx.sfx;
   const byId = id => document.getElementById(id);
 
-  const DEFAULT_META = { xp: 0, bossKills: 0, runs: [], skillStats: {}, name: '' };
+  const DEFAULT_META = { xp: 0, bossKills: 0, runs: [], skillStats: {}, name: '', schluessel: '', codes: [], checkpoints: {} };
   const meta = () => Object.assign({}, DEFAULT_META, RM.store.get('rm.meta', {}));
   const saveMeta = m => RM.store.set('rm.meta', m);
 
@@ -61,6 +61,13 @@
   const hasRelic = id => !!run && run.relics.includes(id) && !(enc && enc.kind === 'training');
   const goldAmt = g => Math.round(g * (run ? cls().goldFactor : 1));
   const heal = n => { run.hp = Math.min(run.maxHp, run.hp + n); };
+  const MODES = { klasse: '🏫 Klassenmodus', uebung: '🏠 Übungsmodus', hausaufgabe: '📋 Hausaufgabe' };
+  const modeName = m => (MODES[m] || MODES.uebung).replace(/^\S+ /, '');
+  const isHA = () => !!run && run.mode === 'hausaufgabe';
+
+  // Kontrollpunkte im Hausaufgabenmodus: höchste freigespielte Ebene je Kürzel, Schlüssel und Thema
+  const cpKey = (name, schluessel, topicId) => RM.codes.normKuerzel(name) + '|' + RM.codes.normSchluessel(schluessel) + '|' + topicId;
+  const checkpoint = (name, schluessel, topicId) => (meta().checkpoints || {})[cpKey(name, schluessel, topicId)] || 0;
 
   const NODE = {
     battle: { emoji: '⚔️', name: 'Gegner' },
@@ -206,6 +213,7 @@
       '<div class="menu">' +
       '<button class="btn ghost" data-act="go" data-to="training">🎯 Trainingsraum</button>' +
       '<button class="btn ghost" data-act="go" data-to="progress">📊 Mein Lernstand</button>' +
+      ((m.codes || []).length ? '<button class="btn ghost" data-act="go" data-to="codes">🔐 Meine Nachweis-Codes</button>' : '') +
       '<button class="btn ghost" data-act="go" data-to="help">❔ Spielanleitung</button>' +
       '<div class="row"><button class="btn ghost small" data-act="toggleSound">' + soundLabel() + '</button>' +
       '<button class="btn ghost small" data-act="teacherLogin">🔑 Lehrkraft</button></div>' +
@@ -225,7 +233,7 @@
     return '<div class="slot-card">' + head +
       '<button class="slot-del" data-act="deleteSlot" data-i="' + i + '" aria-label="Spielstand ' + (i + 1) + ' löschen">🗑️</button></div>' +
       '<div class="slot-name">' + RM.sprites.html(r.cls, 34, 'inline') + ' ' + esc(r.name) + '</div>' +
-      '<small>Jg. ' + tp.grade + ': ' + esc(tp.title) + ' · ' + (r.mode === 'klasse' ? 'Klassenmodus' : 'Übungsmodus') + '</small>' +
+      '<small>Jg. ' + tp.grade + ': ' + esc(tp.title) + ' · ' + modeName(r.mode) + '</small>' +
       '<div class="slot-stats">Ebene ' + (r.floor + 1) + '/' + tp.floors.length + ' · ❤️ ' + r.hp + '/' + r.maxHp + ' · 🪙 ' + r.gold + '</div>' +
       (r.updatedAt ? '<small>zuletzt gespielt: ' + dateStr(new Date(r.updatedAt).toISOString()) + '</small>' : '') +
       '<button class="btn" data-act="loadSlot" data-i="' + i + '">▶ Weiterspielen</button></div>';
@@ -256,7 +264,7 @@
   // ================= Neuer Durchgang =================
   let draft = null;
   function startDraft() {
-    draft = { name: meta().name || '', mode: 'klasse', topicId: RM.topics[0].id, cls: 'abenteurer', ruhe: false };
+    draft = { name: meta().name || '', mode: 'klasse', topicId: RM.topics[0].id, cls: 'abenteurer', ruhe: false, schluessel: meta().schluessel || '', startFloor: 0 };
     show('newrun');
   }
   const classUnlocked = (c, m) => settings().alleKlassen || !c.unlock || c.unlock.test(m);
@@ -271,39 +279,76 @@
       return card('cls', id, ok ? RM.sprites.html(id, 64) : '🔒', c.name, ok ? c.desc + '<br>❤️ ' + c.hp + ' · 🪙 ' + c.gold : c.unlock.text, !ok);
     }).join('');
     const topics = RM.topics.map(t => card('topicId', t.id, '📚', 'Jg. ' + t.grade + ': ' + t.title, t.description)).join('');
+    const ha = draft.mode === 'hausaufgabe';
     let ruhe = '';
-    if (draft.mode === 'uebung') ruhe = '<label class="check"><input type="checkbox" id="ruhe" ' + (draft.ruhe ? 'checked' : '') + '> Ruhemodus – ohne Zeitdruck spielen</label>';
+    if (draft.mode !== 'klasse') ruhe = '<label class="check"><input type="checkbox" id="ruhe" ' + (draft.ruhe ? 'checked' : '') + '> Ruhemodus – ohne Zeitdruck spielen</label>';
     else if (s.zeitdruck === 'aus') ruhe = '<p class="muted">Der Ruhemodus (ohne Zeitdruck) ist auf diesem Gerät eingeschaltet.</p>';
+    const haBox = !ha ? '' :
+      '<label class="field">Aufgabenschlüssel <small>(von deiner Lehrkraft, z. B. 8B-HERBST)</small><input id="key" maxlength="24" autocomplete="off" autocapitalize="characters" value="' + esc(draft.schluessel) + '"></label>' +
+      '<div class="info-box">🔐 Nach jedem Boss bekommst du einen <b>Nachweis-Code</b>. Notiere ihn und gib ihn bei deiner Lehrkraft ab. Der Code passt nur zu deinem Kürzel und diesem Schlüssel.</div>' +
+      '<div id="cpBox">' + startFloorHtml() + '</div>';
     return '<section class="screen narrow">' +
       '<h2>Neues Abenteuer</h2><p class="muted">Wird in Spielstand ' + (slot + 1) + ' gespeichert.</p>' +
-      '<label class="field">Dein Spitzname <small>(bitte nicht deinen vollständigen Namen)</small><input id="nick" maxlength="20" autocomplete="off" value="' + esc(draft.name) + '"></label>' +
-      '<h3>Spielmodus</h3><div class="cards two">' +
+      (ha
+        ? '<label class="field">Dein Kürzel <small>(genau so, wie mit deiner Lehrkraft vereinbart)</small><input id="nick" maxlength="20" autocomplete="off" value="' + esc(draft.name) + '"></label>'
+        : '<label class="field">Dein Spitzname <small>(bitte nicht deinen vollständigen Namen)</small><input id="nick" maxlength="20" autocomplete="off" value="' + esc(draft.name) + '"></label>') +
+      '<h3>Spielmodus</h3><div class="cards three">' +
       card('mode', 'klasse', '🏫', 'Klassenmodus', 'Im Unterricht: Analoge Quests legst du deiner Lehrkraft vor.') +
       card('mode', 'uebung', '🏠', 'Übungsmodus', 'Zum Nachlernen: Quests mit Selbstkontrolle – ohne Lehrkraft.') +
+      card('mode', 'hausaufgabe', '📋', 'Hausaufgabe', 'Nach jedem Boss gibt es einen Nachweis-Code für deine Lehrkraft.') +
       '</div>' + ruhe +
-      '<h3>Thema</h3><div class="cards">' + topics + '</div>' +
+      '<h3>Thema</h3><div class="cards">' + topics + '</div>' + haBox +
       '<h3>Charakter</h3><div class="cards four">' + classes + '</div>' +
       '<div class="row"><button class="btn ghost" data-act="go" data-to="title">Zurück</button><button class="btn big" data-act="startRun">Los geht’s!</button></div>' +
       '</section>';
   };
+  // Hausaufgabe: Auswahl der Start-Ebene bis zum Kontrollpunkt
+  function startFloorHtml() {
+    const tp = RM.getTopic(draft.topicId);
+    const cp = draft.name && draft.schluessel ? Math.min(checkpoint(draft.name, draft.schluessel, draft.topicId), tp.floors.length - 1) : 0;
+    if (draft.startFloor > cp) draft.startFloor = 0;
+    if (!cp) return '';
+    return '<h3>Start auf Ebene</h3><p class="muted">Du hast schon Ebenen geschafft und kannst dort weitermachen.</p><div class="segs">' +
+      tp.floors.slice(0, cp + 1).map((f, i) => '<button class="seg ' + (draft.startFloor === i ? 'on' : '') + '" data-act="draftFloor" data-i="' + i + '">' + f.emoji + ' Ebene ' + (i + 1) + '</button>').join('') + '</div>';
+  }
+  // Kürzel und Schlüssel bestimmen die freigespielten Ebenen; nur diesen Teil neu zeichnen, damit kein Tipp verloren geht
+  mounts.newrun = () => ['nick', 'key'].forEach(id => {
+    const el = byId(id);
+    if (el) el.addEventListener('input', () => {
+      const box = byId('cpBox');
+      if (!box) return;
+      readDraft();
+      box.innerHTML = startFloorHtml();
+    });
+  });
   function readDraft() {
     const n = document.getElementById('nick'); if (n) draft.name = n.value.trim();
     const r = document.getElementById('ruhe'); if (r) draft.ruhe = r.checked;
+    const k = document.getElementById('key'); if (k) draft.schluessel = k.value.trim().toUpperCase();
   }
   A.draft = d => { readDraft(); draft[d.k] = d.v; show('newrun'); };
+  A.draftFloor = d => { readDraft(); draft.startFloor = +d.i; show('newrun'); };
   A.startRun = () => {
     readDraft();
-    if (!draft.name) { toast('Bitte gib einen Spitznamen ein.', 'bad'); return; }
+    const ha = draft.mode === 'hausaufgabe';
+    if (!draft.name) { toast(ha ? 'Bitte gib dein Kürzel ein.' : 'Bitte gib einen Spitznamen ein.', 'bad'); return; }
+    if (ha && !RM.codes.normKuerzel(draft.name)) { toast('Dein Kürzel braucht mindestens einen Buchstaben oder eine Ziffer.', 'bad'); return; }
+    if (ha && RM.codes.normSchluessel(draft.schluessel).length < 3) { toast('Bitte gib den Aufgabenschlüssel deiner Lehrkraft ein.', 'bad'); return; }
     if (slot < 0 || slots[slot]) { show('title'); return; }
     const c = RM.CLASSES[draft.cls], m = meta();
-    m.name = draft.name; saveMeta(m);
+    m.name = draft.name;
+    if (ha) m.schluessel = draft.schluessel;
+    saveMeta(m);
+    const cp = ha ? Math.min(checkpoint(draft.name, draft.schluessel, draft.topicId), RM.getTopic(draft.topicId).floors.length - 1) : 0;
+    const startFloor = Math.min(draft.startFloor || 0, cp);
     run = {
       v: 1, name: draft.name, mode: draft.mode, topicId: draft.topicId, cls: draft.cls,
-      ruhe: draft.mode === 'uebung' && draft.ruhe,
-      hp: c.hp, maxHp: c.hp, gold: c.gold, items: c.items.slice(), relics: [], shield: false,
-      floor: 0, map: null, pos: null, visited: [], nodeDone: true,
+      ruhe: draft.mode !== 'klasse' && draft.ruhe,
+      hp: c.hp, maxHp: c.hp, gold: c.gold + 25 * startFloor, items: c.items.slice(), relics: [], shield: false,
+      floor: startFloor, map: null, pos: null, visited: [], nodeDone: true,
       stats: {}, floorStats: {}, mistakes: [], quests: [], bosses: 0, bonusXp: 0, flags: {}, startedAt: Date.now(),
-      kind: settings().kartenart === 'pfad' ? 'pfad' : 'dungeon'
+      kind: settings().kartenart === 'pfad' ? 'pfad' : 'dungeon',
+      schluessel: ha ? draft.schluessel : '', codes: [], startFloor
     };
     newWorld();
     saveRun();
@@ -324,7 +369,7 @@
     const f = floor(), s = settings();
     run.dungeon = RM.dungeon.generate({
       enemies: f.enemies, elite: f.elites[0], boss: f.boss,
-      need: +s.monsterMin || 5, quest: run.mode === 'uebung' || s.quests
+      need: +s.monsterMin || 5, quest: run.mode !== 'klasse' || s.quests
     });
     run.dungeon.log.unshift(f.emoji + ' ' + f.name + ': Besiege ' + run.dungeon.need + ' Monster, dann öffnet sich das Boss-Tor ⛩️.');
   }
@@ -628,7 +673,7 @@
   function startCombat(kind, o = {}) {
     const f = floor(), row = run.pos ? run.pos.row : 0;
     const base = { topic: topic(), kind, combo: 0, euleUsed: false };
-    if (kind === 'boss') enc = Object.assign(base, { enemy: f.boss, phases: f.boss.phases, phase: 0, hp: 3 });
+    if (kind === 'boss') enc = Object.assign(base, { enemy: f.boss, phases: f.boss.phases, phase: 0, hp: 3, fehler: 0 });
     else if (kind === 'elite') enc = Object.assign(base, { enemy: R.pick(f.elites), skills: f.skills, diff: [2, 3], hp: 4 });
     else enc = Object.assign(base, { enemy: o.enemy || R.pick(f.enemies), skills: f.skills, diff: o.diff || (row <= 1 ? [1, 1] : row <= 3 ? [1, 2] : [2, 2]), hp: o.hp || (row <= 1 ? 2 : 3) });
     enc.maxHp = enc.hp;
@@ -644,6 +689,8 @@
       '<p class="lead">' + b.intro + '</p>' +
       '<div class="info-box"><b>Zwischenprüfung</b><br>Der Kampf hat ' + b.phases.length + ' Phasen mit je 3 Treffern:<ul>' +
       b.phases.map(p => '<li>' + p.title + '</li>').join('') + '</ul>Am Ende siehst du, welche Themen du schon sicher beherrschst.</div>' +
+      (isHA() ? '<div class="info-box">🔐 Nach dem Sieg erhältst du deinen Nachweis-Code. Die Gütestufe hängt von deinen Fehlern im Bosskampf ab: ' +
+        Object.values(RM.codes.STUFEN).map(st => st.emoji + ' ' + st.name + ' (' + st.text + ')').join(' · ') + '.</div>' : '') +
       '<button class="btn big danger" data-act="bossStart">⚔️ Kampf beginnen</button></section>';
   };
   mounts.bossIntro = () => RM.fx.bossEntrance(byId('bossStage'));
@@ -696,7 +743,7 @@
     let body;
     if (enc.state === 'solution') body = solutionHtml();
     else {
-      body = '<div class="task-prompt">' + t.prompt + '</div>' +
+      body = '<div class="task-prompt">' + t.prompt + '</div>' + figureHtml(t) +
         (enc.hintShown && t.hint ? '<div class="hint">💡 ' + t.hint + '</div>' : '') +
         '<div id="fb" class="feedback"></div>' +
         (t.input === 'choice' ? choicesHtml() : inputHtml());
@@ -743,9 +790,12 @@
     if (enc) enc.start += Date.now() - t0;
   }
 
+  // Skizze zur Aufgabe (Geometrie); Figur im Lösungsweg ggf. mit Hilfslinien
+  const figureHtml = t => (t.figure ? '<div class="task-figure">' + (enc.state === 'solution' && t.figureSolution ? t.figureSolution : t.figure) + '</div>' : '');
+
   function choicesHtml() {
     const t = enc.task;
-    return '<div class="choices">' + t.choices.map((c, i) => enc.hidden.includes(i)
+    return '<div class="choices' + (t.choices.some(c => c.includes('<svg')) ? ' pics' : '') + '">' + t.choices.map((c, i) => enc.hidden.includes(i)
       ? '<button class="choice-btn gone" disabled><span class="choice-key">' + 'ABCD'[i] + '</span>' + c + '</button>'
       : '<button class="choice-btn" data-act="choose" data-i="' + i + '"><span class="choice-key">' + 'ABCD'[i] + '</span>' + c + '</button>').join('') + '</div>';
   }
@@ -753,7 +803,8 @@
   function inputHtml() {
     const t = enc.task;
     const ph = t.input === 'term' ? 'Term eingeben …' : t.var ? 'Lösung eingeben, z. B. ' + t.var + ' = 3' : 'Zahl eingeben …';
-    return '<div class="answer-display" id="ansDisplay">' + displayInner(ph) + '</div>' + keypad(t);
+    return '<div class="answer-row"><div class="answer-display" id="ansDisplay">' + displayInner(ph) + '</div>' +
+      (t.unit ? '<span class="unit">' + t.unit + '</span>' : '') + '</div>' + keypad(t);
   }
   function displayInner(ph) {
     return enc.input ? fmtInput(enc.input) + '<span class="caret"></span>' : '<span class="placeholder">' + ph + '</span><span class="caret"></span>';
@@ -850,7 +901,7 @@
     const t = enc.task;
     if (t.input !== 'choice') return fmtInput(enc.input);
     const txt = t.choices[choice].replace(/<[^>]+>/g, '');
-    return txt.length <= 22 ? t.choices[choice] : '✦ ' + 'ABCD'[choice];
+    return txt.length <= 22 && !t.choices[choice].includes('<svg') ? t.choices[choice] : '✦ ' + 'ABCD'[choice];
   }
 
   async function onCorrect(elapsed, choice) {
@@ -908,6 +959,7 @@
   async function onWrong(choice) {
     const t = enc.task, me = enc;
     enc.attempts++;
+    if (enc.kind === 'boss') enc.fehler++;
     if (t.input === 'choice') enc.hidden.push(choice);
     const visible = t.input === 'choice' ? t.choices.length - enc.hidden.length : 99;
     const final = enc.attempts >= 2 || visible <= 1;
@@ -955,7 +1007,7 @@
     if (enc.dead) { title = '💀 Du wurdest besiegt'; sub = '<p class="muted">Kein Problem – jeder Durchgang macht dich stärker. Schau dir den Lösungsweg an.</p>'; }
     else if (enc.kind !== 'training' && enc.lastDamage) sub = '<p class="bad-text">Auch der zweite Versuch war falsch (−' + enc.lastDamage + ' ❤️).' + (enc.lastNote || '') + '</p>';
     else if (enc.lastNote) sub = '<p>' + enc.lastNote + '</p>';
-    return '<div class="task-prompt dim">' + t.prompt + '</div>' +
+    return '<div class="task-prompt dim">' + t.prompt + '</div>' + figureHtml(t) +
       '<div class="solution"><h3>' + title + '</h3>' + sub +
       '<p>Richtige Antwort: <b>' + t.answerHtml + '</b></p>' +
       (RM.sims.supports(t.sim) ? '<div id="simHost"></div>' : '') +
@@ -1009,6 +1061,7 @@
     const g = goldAmt(40);
     run.gold += g;
     run.bosses++;
+    if (isHA()) awardCode(RM.codes.stufeFor(enc.fehler || 0));
     const choice = [];
     for (let i = 0; i < 3; i++) { const r = randomRelic(choice); if (r) choice.push(r); }
     run.relicChoice = choice;
@@ -1017,6 +1070,24 @@
     saveRun();
     show('floorSummary');
   }
+
+  // Nachweis-Code für die Hausaufgabe: im Spielstand, im Codebuch des Geräts und als Kontrollpunkt speichern
+  function awardCode(stufe) {
+    const code = RM.codes.make(run.topicId, run.floor, stufe, run.name, run.schluessel);
+    const entry = { code, topicId: run.topicId, floor: run.floor, stufe, name: run.name, schluessel: run.schluessel, date: new Date().toISOString() };
+    run.codes = (run.codes || []).concat(entry);
+    run.lastCode = entry;
+    const m = meta();
+    if (!(m.codes || []).some(c => c.code === code && RM.codes.normKuerzel(c.name) === RM.codes.normKuerzel(run.name))) m.codes = (m.codes || []).concat(entry);
+    m.checkpoints = m.checkpoints || {};
+    const k = cpKey(run.name, run.schluessel, run.topicId);
+    m.checkpoints[k] = Math.max(m.checkpoints[k] || 0, run.floor + 1);
+    saveMeta(m);
+  }
+  const codeBox = c => '<div class="code-box"><small>Dein Nachweis-Code für Ebene ' + (c.floor + 1) + '</small>' +
+    '<div class="code">' + c.code + '</div>' +
+    '<small>' + RM.codes.STUFEN[c.stufe].emoji + ' Gütestufe ' + RM.codes.STUFEN[c.stufe].name + ' · Kürzel: <b>' + esc(c.name) + '</b> · Schlüssel: <b>' + esc(c.schluessel) + '</b></small>' +
+    '<p>✏️ Schreib den Code jetzt ab! Du findest ihn später auch unter „🔐 Meine Nachweis-Codes“.</p></div>';
 
   // ================= Statistik =================
   function recordStat(t, ok, first) {
@@ -1061,6 +1132,7 @@
     return hud() + '<section class="screen narrow">' +
       '<div class="center">' + chestStage() + '<h2>' + f.boss.name + ' ist besiegt!</h2>' +
       '<p class="lead">Ebene ' + (run.floor + 1) + ' geschafft: „' + f.name + '“</p></div>' +
+      (isHA() && run.lastCode && run.lastCode.floor === run.floor ? codeBox(run.lastCode) : '') +
       '<h3>Deine Zwischenbilanz für diese Ebene</h3>' + statsTable(stats, topic(), f.skills) + recommendations(stats, topic()) +
       '<div class="row"><button class="btn big" data-act="go" data-to="relicChoice">' + (run.relicChoice.length ? '🎁 Belohnung wählen' : 'Weiter') + '</button></div></section>';
   };
@@ -1108,14 +1180,29 @@
     const unlocked = Object.values(RM.CLASSES).filter(c => classUnlocked(c, m) && !before.includes(c.name)).map(c => c.emoji + ' ' + c.name);
     const summary = {
       date: new Date().toISOString(), name: r.name, mode: r.mode, topicId: r.topicId, cls: r.cls,
-      victory, floor: r.floor + 1, floors: RM.getTopic(r.topicId).floors.length, stats: r.stats, quests: r.quests, xp
+      victory, floor: r.floor + 1, floors: RM.getTopic(r.topicId).floors.length, stats: r.stats, quests: r.quests, xp,
+      schluessel: r.schluessel || '', codes: r.codes || [], startFloor: r.startFloor || 0
     };
     m.runs = [summary].concat(m.runs || []).slice(0, 20);
     saveMeta(m);
     clearSlot(slot);
+    lastSlot = slot;
     run = null; enc = null; slot = -1;
     show('runEnd', { s: summary, unlocked });
   }
+
+  let lastSlot = -1;
+  // Hausaufgabe: nach einer Niederlage am Kontrollpunkt weitermachen
+  A.retryCheckpoint = () => {
+    const s = view.params.s;
+    const free = slots[lastSlot] ? slots.findIndex(x => !x) : lastSlot;
+    if (free < 0) { toast('Alle drei Spielstände sind belegt. Lösche zuerst einen.', 'bad'); return show('title'); }
+    slot = free;
+    run = null;
+    const cp = Math.min(checkpoint(s.name, s.schluessel, s.topicId), RM.getTopic(s.topicId).floors.length - 1);
+    draft = { name: s.name, mode: 'hausaufgabe', topicId: s.topicId, cls: s.cls, ruhe: false, schluessel: s.schluessel, startFloor: cp };
+    show('newrun');
+  };
 
   const dateStr = iso => new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
@@ -1127,12 +1214,74 @@
     return '<section class="screen narrow report">' +
       '<div class="center"><div class="big-emoji">' + (s.victory ? '🏆' : '💀') + '</div><h2>' + (s.victory ? 'Sieg! Alle Ebenen geschafft!' : 'Das Abenteuer ist vorbei') + '</h2>' +
       '<p class="lead">' + RM.sprites.html(s.cls, 40, 'inline') + ' ' + esc(s.name) + ' · ' + RM.CLASSES[s.cls].name + '</p>' +
-      '<p class="muted">' + dateStr(s.date) + ' · ' + (s.mode === 'klasse' ? 'Klassenmodus' : 'Übungsmodus') + ' · Jg. ' + tp.grade + ': ' + tp.title + ' · erreicht: Ebene ' + s.floor + ' von ' + s.floors + '</p></div>' +
+      '<p class="muted">' + dateStr(s.date) + ' · ' + modeName(s.mode) + ' · Jg. ' + tp.grade + ': ' + tp.title + ' · erreicht: Ebene ' + s.floor + ' von ' + s.floors + '</p></div>' +
       '<div class="kpis"><div><b>' + ok + ' / ' + total + '</b><small>Aufgaben richtig</small></div><div><b>' + (total ? Math.round(ok / total * 100) : 0) + ' %</b><small>Quote</small></div><div><b>+' + s.xp + '</b><small>Erfahrung</small></div></div>' +
       '<h3>Ergebnisse nach Themen</h3>' + statsTable(s.stats, tp) + quests + recommendations(s.stats, tp) +
       (p.unlocked.length ? '<div class="info-box">🔓 Neu freigeschaltet: ' + p.unlocked.join(', ') + '</div>' : '') +
       (s.mode === 'klasse' ? '<div class="info-box">📸 Zeige diese Übersicht deiner Lehrkraft.</div>' : '') +
-      '<div class="row"><button class="btn ghost" data-act="go" data-to="title">Hauptmenü</button><button class="btn" data-act="go" data-to="training">🎯 Trainingsraum</button></div></section>';
+      (s.mode === 'hausaufgabe' ? haEndHtml(s) : '') +
+      '<div class="row"><button class="btn ghost" data-act="go" data-to="title">Hauptmenü</button><button class="btn" data-act="go" data-to="training">🎯 Trainingsraum</button>' +
+      (s.mode === 'hausaufgabe' && !s.victory && checkpoint(s.name, s.schluessel, s.topicId) > 0 ? '<button class="btn" data-act="retryCheckpoint">🔁 Am Kontrollpunkt weiterspielen</button>' : '') +
+      '</div></section>';
+  };
+  function haEndHtml(s) {
+    const cp = checkpoint(s.name, s.schluessel, s.topicId), n = s.floors;
+    const codes = s.codes.length
+      ? '<h3>🔐 Deine Nachweis-Codes aus diesem Abenteuer</h3><ul class="code-list">' + s.codes.map(c => '<li><b class="code">' + c.code + '</b> Ebene ' + (c.floor + 1) + ' · ' + RM.codes.STUFEN[c.stufe].emoji + ' ' + RM.codes.STUFEN[c.stufe].name + '</li>').join('') + '</ul>'
+      : '';
+    const next = s.victory ? '🏆 Du hast alle Ebenen geschafft – die Hausaufgabe ist erledigt, sobald du alle Codes abgegeben hast.'
+      : cp > 0 ? '🚩 Kontrollpunkt: Du hast schon ' + Math.min(cp, n) + ' von ' + n + ' Ebenen geschafft und kannst auf Ebene ' + (Math.min(cp, n - 1) + 1) + ' weiterspielen.'
+        : 'Noch kein Boss besiegt. Starte ein neues Abenteuer – du schaffst das!';
+    return codes + '<div class="info-box">' + next + ' Alle Codes findest du auch im Hauptmenü unter „🔐 Meine Nachweis-Codes“.</div>';
+  }
+
+  // ================= Codebuch (Hausaufgabe) =================
+  screens.codes = () => {
+    const m = meta(), list = m.codes || [];
+    const groups = {};
+    for (const c of list) (groups[cpKey(c.name, c.schluessel, c.topicId)] = groups[cpKey(c.name, c.schluessel, c.topicId)] || []).push(c);
+    const order = { G: 0, S: 1, B: 2 };
+    const html = Object.values(groups).map(g => {
+      const tp = RM.getTopic(g[0].topicId);
+      if (!tp) return '';
+      const rows = tp.floors.map((f, i) => {
+        const best = g.filter(c => c.floor === i).sort((a, b) => order[a.stufe] - order[b.stufe])[0];
+        return '<tr><td>' + f.emoji + ' Ebene ' + (i + 1) + '</td><td>' + (best ? '<b class="code">' + best.code + '</b>' : '<span class="muted">noch offen</span>') + '</td><td>' +
+          (best ? RM.codes.STUFEN[best.stufe].emoji + ' ' + RM.codes.STUFEN[best.stufe].name : '') + '</td><td>' + (best ? dateStr(best.date) : '') + '</td></tr>';
+      }).join('');
+      return '<h3>Jg. ' + tp.grade + ': ' + esc(tp.title) + '</h3><p class="muted">Kürzel: <b>' + esc(g[0].name) + '</b> · Aufgabenschlüssel: <b>' + esc(g[0].schluessel) + '</b></p>' +
+        '<table class="stats"><thead><tr><th>Ebene</th><th>Code</th><th>Stufe</th><th>erhalten</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    }).join('');
+    return '<section class="screen narrow report"><h2>🔐 Meine Nachweis-Codes</h2>' +
+      '<p class="muted">Gib diese Codes zusammen mit deinem Kürzel bei deiner Lehrkraft ab (z. B. im Heft oder über IServ). Gezeigt wird je Ebene der beste Code. Willst du eine bessere Gütestufe, spiele die Ebene im Hausaufgabenmodus noch einmal.</p>' +
+      (html || '<p class="muted">Noch keine Codes.</p>') +
+      '<div class="row"><button class="btn" data-act="go" data-to="title">Hauptmenü</button></div></section>';
+  };
+
+  // ================= Codes prüfen (Lehrkraft) =================
+  let verifyDraft = { schluessel: '', text: '', out: null };
+  screens.verify = () => {
+    const v = verifyDraft;
+    let out = '';
+    if (v.out) {
+      out = v.out.length ? '<table class="stats verify"><thead><tr><th>Kürzel</th><th>Ergebnis</th></tr></thead><tbody>' + v.out.map(r =>
+        '<tr><td><b>' + esc(r.kuerzel || '–') + '</b></td><td>' + (r.results.length ? r.results.map(x => x.ok
+          ? '<div class="ok">✅ ' + esc(x.code.toUpperCase()) + ' · ' + esc(x.topic.title) + ', Ebene ' + (x.floor + 1) + ' · ' + RM.codes.STUFEN[x.stufe].emoji + ' ' + RM.codes.STUFEN[x.stufe].name + '</div>'
+          : '<div class="bad">❌ ' + esc(x.code.toUpperCase()) + ' · ' + x.why + '</div>').join('') : '<span class="muted">kein Code erkannt</span>') + '</td></tr>').join('') + '</tbody></table>'
+        : '<p class="muted">Keine Zeilen gefunden.</p>';
+    }
+    return '<section class="screen narrow teacher-view"><h2>🔐 Nachweis-Codes prüfen</h2>' +
+      '<p class="muted">Eine Zeile pro Schüler: zuerst das Kürzel, dahinter beliebig viele Codes – getrennt durch Leerzeichen, Tab, Komma oder Semikolon. Groß- und Kleinschreibung spielen keine Rolle. Die Prüfung läuft nur auf diesem Gerät.</p>' +
+      '<label class="field">Aufgabenschlüssel<input id="vKey" maxlength="24" autocomplete="off" value="' + esc(v.schluessel) + '"></label>' +
+      '<label class="field">Kürzel und Codes<textarea id="vText" rows="7" placeholder="leam FK1G-ABCDEF FK2S-GHJKMN&#10;tim7 FK1B-PQRSTU">' + esc(v.text) + '</textarea></label>' +
+      '<div class="row"><button class="btn" data-act="verifyRun">Prüfen</button></div>' + out +
+      '<div class="row"><button class="btn ghost" data-act="go" data-to="teacher">← Lehrkraft-Bereich</button></div></section>';
+  };
+  A.verifyRun = () => {
+    verifyDraft.schluessel = byId('vKey').value.trim();
+    verifyDraft.text = byId('vText').value;
+    verifyDraft.out = RM.codes.verifyList(verifyDraft.text, verifyDraft.schluessel);
+    show('verify');
   };
 
   // ================= Händler =================
@@ -1417,6 +1566,7 @@
       '<div class="setting"><div><b>Große Darstellung</b><small>Größere Schrift, Tasten und Dungeon-Felder auf diesem Gerät, z. B. bei Sehschwäche.</small></div><div class="segs">' + opt('gross', true, 'An') + opt('gross', false, 'Aus') + '</div></div>' +
       '<div class="setting"><div><b>Alle Charaktere freischalten</b></div><div class="segs">' + opt('alleKlassen', true, 'An') + opt('alleKlassen', false, 'Aus') + '</div></div>' +
       '<div class="setting"><div><b>PIN für dieses Gerät ändern</b><small>Standard-PIN steht in js/config.js.</small></div><div class="segs"><input id="newPin" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="neue PIN"><button class="btn small" data-act="setPin">Speichern</button></div></div>' +
+      '<div class="row"><button class="btn" data-act="go" data-to="verify">🔐 Nachweis-Codes prüfen</button></div>' +
       '<div class="row"><button class="btn ghost" data-act="go" data-to="progress">📊 Lernstand auf diesem Gerät</button><button class="btn danger" data-act="resetAll">Alle Spieldaten löschen</button></div>' +
       '<div class="row"><button class="btn big" data-act="go" data-to="title">Fertig</button></div></section>';
   };
@@ -1453,7 +1603,7 @@
     const runTable = runs.length ? '<table class="stats"><thead><tr><th>Datum</th><th>Name</th><th>Modus</th><th>Ergebnis</th><th>Quote</th></tr></thead><tbody>' +
       runs.map(r => {
         const n = Object.values(r.stats).reduce((a, x) => a + x.n, 0), ok = Object.values(r.stats).reduce((a, x) => a + x.ok, 0);
-        return '<tr><td>' + dateStr(r.date) + '</td><td>' + esc(r.name) + '</td><td>' + (r.mode === 'klasse' ? 'Klasse' : 'Übung') + '</td><td>' + (r.victory ? '🏆 Sieg' : 'Ebene ' + r.floor) + '</td><td>' + (n ? Math.round(ok / n * 100) + ' %' : '–') + '</td></tr>';
+        return '<tr><td>' + dateStr(r.date) + '</td><td>' + esc(r.name) + '</td><td>' + modeName(r.mode) + '</td><td>' + (r.victory ? '🏆 Sieg' : 'Ebene ' + r.floor) + '</td><td>' + (n ? Math.round(ok / n * 100) + ' %' : '–') + '</td></tr>';
       }).join('') + '</tbody></table>' : '<p class="muted">Noch keine abgeschlossenen Abenteuer.</p>';
     return '<section class="screen narrow report"><h2>📊 Mein Lernstand</h2>' +
       '<p class="muted">Alle Aufgaben aus Abenteuern und Trainingsraum auf diesem Gerät · ⭐ ' + m.xp + ' Erfahrungspunkte</p>' + topics +
@@ -1515,7 +1665,8 @@
     '<li>⚡ Bist du schnell (grüner Balken), gibt es Bonus-Gold. Brauchst du extrem lange (roter Balken), trifft dich der Gegner (−1 ❤️).</li>' +
     '<li>Eingaben: Terme wie <span class="m">3<i>x</i> + 2</span>, Brüche als <span class="m">3/4</span>, Dezimalzahlen mit Komma. Gleichwertige Schreibweisen werden erkannt.</li></ul>' +
     '<h3>Lösungswege</h3><p>Nach einem Fehler siehst du den Lösungsweg. Bei vielen Aufgaben zeigt eine Animation das Prinzip: die Waage bei Gleichungen, das Flächenmodell bei Klammern, die Sortiermaschine beim Zusammenfassen und die Einsetzmaschine beim Termwert.</p>' +
-    '<h3>Analoge Quests</h3><p>Im Klassenmodus bearbeitest du Quests im Heft und legst sie deiner Lehrkraft vor. Im Übungsmodus kontrollierst du dich selbst.</p>' +
+    '<h3>Analoge Quests</h3><p>Im Klassenmodus bearbeitest du Quests im Heft und legst sie deiner Lehrkraft vor. Im Übungs- und im Hausaufgabenmodus kontrollierst du dich selbst.</p>' +
+    '<h3>Hausaufgabe 📋</h3><p>Gib dein Kürzel und den Aufgabenschlüssel deiner Lehrkraft ein. Nach jedem Boss bekommst du einen Nachweis-Code, z. B. <b>FK2S-KX7M4Q</b>: Thema, Ebene 2, Gütestufe Silber. Die Gütestufe hängt von deinen Fehlern im Bosskampf ab (🥇 Gold: höchstens 1, 🥈 Silber: höchstens 3, 🥉 Bronze: Boss besiegt). Verlierst du alle Lebenspunkte, kannst du an der letzten geschafften Ebene weitermachen. Alle Codes stehen unter „🔐 Meine Nachweis-Codes“. Der Code funktioniert nur mit deinem Kürzel – Abschreiben bringt also nichts.</p>' +
     '<h3>Fortschritt</h3><p>Verlierst du alle Lebenspunkte, beginnt ein neues Abenteuer. Deine Erfahrung bleibt und schaltet neue Charaktere frei. Im 🎯 Trainingsraum kannst du jedes Thema gezielt üben.</p>' +
     '<h3>Datenschutz</h3><p>Das Spiel speichert nichts im Internet. Alle Daten bleiben in diesem Browser auf diesem Gerät.</p>' +
     '<div class="row"><button class="btn" data-act="go" data-to="title">Verstanden</button></div></section>';

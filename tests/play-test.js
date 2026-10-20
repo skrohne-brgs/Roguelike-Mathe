@@ -1,4 +1,5 @@
 // Automatischer Spieltest im Browser: node tests/play-test.js [anzahl] [ausgabeordner]
+// Umgebungsvariablen: TOPIC=jg8-flaechen-koerper (Thema), MODE=hausaufgabe (Spielmodus), KIND=pfad|dungeon, ACC=0.85 (Trefferquote)
 'use strict';
 const path = require('path');
 const { chromium, devices } = require('playwright');
@@ -21,13 +22,15 @@ const url = 'file://' + path.join(__dirname, '..', 'index.html');
   const click = sel => page.click(sel);
 
   for (let r = 0; r < runs; r++) {
-    const mode = r % 2 ? 'uebung' : 'klasse';
+    const mode = process.env.MODE || (r % 2 ? 'uebung' : 'klasse');
     if (!(await page.$('[data-act="newInSlot"]'))) { await click('[data-act="deleteSlot"]'); await click('[data-act="deleteSlotYes"]'); }
     await click('[data-act="newInSlot"]');
     const kind = (process.env.KIND || '') || (r % 2 ? 'pfad' : 'dungeon');
     await page.evaluate(k => { const s = JSON.parse(localStorage.getItem('rm.settings') || '{}'); s.kartenart = k; localStorage.setItem('rm.settings', JSON.stringify(s)); }, kind);
     await page.fill('#nick', 'Testheld' + r);
     await click(`[data-act="draft"][data-v="${mode}"]`);
+    if (process.env.TOPIC) await click(`[data-act="draft"][data-v="${process.env.TOPIC}"]`);
+    if (mode === 'hausaufgabe') await page.fill('#key', 'TEST-' + r);
     if (!seen.has('newrun')) { seen.add('newrun'); await shot('01-neues-abenteuer'); }
     await click('[data-act="startRun"]');
     let steps = 0, stuck = 0;

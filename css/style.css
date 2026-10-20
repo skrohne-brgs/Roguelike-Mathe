@@ -494,3 +494,32 @@ html.calm *, html.calm *::before, html.calm *::after { animation-duration: .01ms
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Geometrie: Skizzen, Einheiten, Bild-Auswahl ---------- */
+.task-figure { display: flex; justify-content: center; margin: 0 0 14px; }
+.task-figure svg { width: 100%; max-width: 420px; height: auto; max-height: 300px; }
+html.gross .task-figure svg { max-width: 520px; max-height: 380px; }
+.answer-row { display: flex; gap: 10px; align-items: stretch; margin-bottom: 12px; }
+.answer-row .answer-display { flex: 1; margin-bottom: 0; }
+.answer-row .unit { display: grid; place-items: center; padding: 0 14px; border-radius: 14px; background: var(--panel2); font-family: var(--math); font-size: 1.5rem; color: var(--accent2); min-width: 64px; }
+.choices.pics { grid-template-columns: repeat(2, 1fr); }
+.choices.pics .choice-btn { flex-direction: column; align-items: center; padding: 8px; }
+.choices.pics .choice-btn svg { width: 100%; max-width: 200px; height: auto; }
+@media (max-width: 520px) { .choices.pics { grid-template-columns: 1fr; } }
+
+/* ---------- Nachweis-Codes ---------- */
+.code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: .08em; color: var(--accent2); }
+.code-box { background: linear-gradient(160deg, #2e2546, #221c33); border: 2px dashed var(--accent); border-radius: var(--radius); padding: 14px 18px; margin: 14px auto; max-width: 560px; text-align: center; }
+.code-box .code { display: block; font-size: 2.1rem; font-weight: 800; margin: 6px 0; -webkit-user-select: all; user-select: all; }
+.code-box small { color: var(--muted); }
+.code-box p { margin: 8px 0 0; }
+.code-list { list-style: none; padding: 0; }
+.code-list li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.code-list .code { margin-right: 10px; }
+.field textarea { display: block; width: 100%; margin-top: 6px; font: inherit; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 1rem; background: var(--bg2); color: var(--text); border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.verify .ok { color: #b9f2cf; }
+.verify .bad { color: #ffc9c7; }
+.sim svg.geo { width: 100%; max-width: 420px; height: auto; display: block; margin: 0 auto; }
+.sim svg.geo .cut, .sim svg.geo .copy { transition: transform 1s ease, opacity .5s, fill .5s; transform-box: view-box; }
+.sim svg.geo .hl, .sim svg.geo .layer, .sim svg.geo .base { transition: opacity .5s; }
+html.calm .sim svg.geo * { transition: none !important; }
