@@ -218,5 +218,164 @@
     '<rect x="24" y="9" width="16" height="5" rx="1.5" fill="#2a2533"/>' +
     '<circle cx="28.5" cy="11.5" r="1.8" fill="#6ad6ff" stroke="none"/><circle cx="35.5" cy="11.5" r="1.8" fill="#6ad6ff" stroke="none"/>');
 
+  // ================ Jg. 8: Flächen & Körper ================
+  // ---------------- Ebene 1: Halle der Flächen ----------------
+  // Käfer mit dreieckigem Panzer
+  reg('dreieckskaefer', () =>
+    '<path d="M14 44 L6 50 M14 50 L7 58 M50 44 L58 50 M50 50 L57 58 M18 36 L9 36 M46 36 L55 36" stroke-width="2.5" stroke-linecap="round"/>' +
+    '<ellipse cx="32" cy="20" rx="9" ry="7" fill="#2d3b55"/>' +
+    '<path d="M27 14 L22 5 M37 14 L42 5" stroke-width="2" stroke-linecap="round"/>' +
+    eye(28.5, 19, 2.2) + eye(35.5, 19, 2.2) +
+    '<path d="M32 22 L54 56 L10 56 Z" fill="#2fa38a"/>' +
+    '<path d="M32 22 L32 56" stroke-width="2"/>' +
+    '<path d="M32 30 L32 54 M22 54 L32 38" stroke="#bff3e3" stroke-width="2" stroke-dasharray="3 2.5"/>' +
+    '<path d="M32 50 L35.5 50 L35.5 54" fill="none" stroke="#ffcf7a" stroke-width="1.6"/>' +
+    txt(43, 52, 9, '#e9fff7', '½'));
+
+  // Krabbe mit trapezförmigem Körper
+  reg('trapezkrabbe', () =>
+    '<path d="M16 44 L8 54 M20 46 L14 58 M48 44 L56 54 M44 46 L50 58" stroke-width="2.5" stroke-linecap="round"/>' +
+    tube('M14 36 Q6 30 8 20', '#e0703c', 3) + tube('M50 36 Q58 30 56 20', '#e0703c', 3) +
+    '<path d="M3 16 Q8 8 14 15 L9 18 Q12 22 5 22 Z" fill="#f08a4b"/><path d="M61 16 Q56 8 50 15 L55 18 Q52 22 59 22 Z" fill="#f08a4b"/>' +
+    '<path d="M27 26 L26 16 M37 26 L38 16" stroke-width="2"/>' + eye(26, 15, 2.6) + eye(38, 15, 2.6) +
+    '<path d="M22 26 L42 26 L54 48 L10 48 Z" fill="#f08a4b"/>' +
+    '<path d="M22 26 L42 26" stroke="#ffd0a8" stroke-width="2"/>' +
+    txt(32, 43, 9, '#7a2e10', 'a+c'));
+
+  // Rochen in Rautenform (Parallelogramm)
+  reg('rautenrochen', () =>
+    tube('M44 40 Q54 46 60 58', '#3c6fb8', 2.5) +
+    '<path d="M6 34 L26 14 L58 30 L38 50 Z" fill="#4f86d6"/>' +
+    '<path d="M26 14 L26 42" stroke="#ffcf7a" stroke-width="2" stroke-dasharray="3 2.5"/>' +
+    '<path d="M26 38 L29.5 38 L29.5 42" fill="none" stroke="#ffcf7a" stroke-width="1.5"/>' +
+    eye(34, 28, 2.4, '#fff') + eye(42, 32, 2.4, '#fff') +
+    '<path d="M34 37 Q38 40 42 38" fill="none" stroke-width="1.8" stroke-linecap="round"/>');
+
+  // Elite: lebendiges Maßband
+  reg('massband', () =>
+    '<path d="M38 44 L62 44 L62 52 L38 52 Z" fill="#f2c94c"/>' +
+    '<path d="M42 44 L42 48 M46 44 L46 50 M50 44 L50 48 M54 44 L54 50 M58 44 L58 48" stroke-width="1.4"/>' +
+    '<circle cx="28" cy="36" r="22" fill="#d9483b"/>' +
+    '<circle cx="28" cy="36" r="13" fill="#2a2533"/>' +
+    '<circle cx="28" cy="36" r="5" fill="#8a94a6"/>' +
+    '<rect x="16" y="54" width="9" height="7" rx="2" fill="#7a2e26"/><rect x="31" y="54" width="9" height="7" rx="2" fill="#7a2e26"/>' +
+    eye(20, 22, 3) + eye(34, 20, 3) +
+    '<path d="M16 16 L22 18 M38 14 L32 17" stroke-width="2.4" stroke-linecap="round"/>' +
+    txt(28, 39, 7, '#f2c94c', 'cm²'));
+
+  // Boss: Flächenfresser – ein Schleim, der Fliesen verschlingt
+  reg('flaechenfresser', () =>
+    '<rect x="2" y="50" width="10" height="10" fill="#4b3d72"/><rect x="52" y="50" width="10" height="10" fill="#4b3d72"/><rect x="4" y="38" width="8" height="8" fill="#5b4a86" transform="rotate(-15 8 42)"/>' +
+    '<path d="M8 58 Q4 30 18 16 Q32 4 46 16 Q60 30 56 58 Q32 64 8 58 Z" fill="#8a4fd0"/>' +
+    '<path d="M14 40 Q32 30 50 40 Q46 54 32 55 Q18 54 14 40 Z" fill="#2a2533"/>' +
+    '<path d="M18 41 L21 46 L24 40 L27 46 L30 39 L33 46 L36 39 L39 46 L42 40 L45 46 L47 41" fill="#fff" stroke-width="1.2"/>' +
+    '<rect x="26" y="44" width="10" height="10" fill="#6ad6ff" transform="rotate(12 31 49)"/>' +
+    '<path d="M27 49 L36 49 M31 44 L31 54" stroke-width="1" transform="rotate(12 31 49)"/>' +
+    eye(24, 24, 4, '#ffe066') + eye(40, 24, 4, '#ffe066') +
+    '<path d="M18 16 L28 21 M46 16 L36 21" stroke-width="2.8" stroke-linecap="round"/>' +
+    '<circle cx="18" cy="12" r="2" fill="#b98af0"/><circle cx="48" cy="10" r="2.5" fill="#b98af0"/>');
+
+  // ---------------- Ebene 2: Labyrinth der Vielecke ----------------
+  // Motte mit Mosaik-Flügeln
+  reg('mosaikmotte', () =>
+    '<path d="M30 30 L8 10 L4 30 Z" fill="#e0703c"/><path d="M30 30 L4 30 L10 48 Z" fill="#f2c94c"/>' +
+    '<path d="M34 30 L56 10 L60 30 Z" fill="#4f86d6"/><path d="M34 30 L60 30 L54 48 Z" fill="#5cc98a"/>' +
+    '<path d="M30 30 L18 52 L26 54 Z" fill="#b98af0"/><path d="M34 30 L46 52 L38 54 Z" fill="#ef6461"/>' +
+    '<ellipse cx="32" cy="34" rx="5" ry="16" fill="#4a3a2a"/>' +
+    '<path d="M30 19 Q26 8 20 6 M34 19 Q38 8 44 6" fill="none" stroke-width="1.8"/>' +
+    eye(29.5, 22, 2) + eye(34.5, 22, 2));
+
+  // Igel mit Zacken (Vieleck-Stacheln)
+  reg('zackenigel', () =>
+    '<path d="M8 46 L4 36 L12 34 L10 24 L19 25 L20 15 L28 19 L33 10 L38 18 L46 13 L46 23 L55 23 L52 33 L60 37 L54 46 Z" fill="#5a4a7a"/>' +
+    '<path d="M12 40 L18 30 M22 34 L28 22 M34 32 L40 20 M44 36 L50 28" stroke="#8f7fb8" stroke-width="2"/>' +
+    '<path d="M8 46 Q10 58 26 58 L44 58 Q56 56 56 46 Z" fill="#c9a77a"/>' +
+    '<path d="M50 44 Q60 46 62 50 Q58 54 52 52 Z" fill="#c9a77a"/><circle cx="61" cy="50" r="2" fill="#1b1724" stroke="none"/>' +
+    eye(48, 46, 2.4) +
+    '<rect x="18" y="56" width="6" height="5" rx="2" fill="#8a6a4a"/><rect x="38" y="56" width="6" height="5" rx="2" fill="#8a6a4a"/>');
+
+  // Wurm aus Sechsecken
+  const hex = (cx, cy, r, fill) => '<path d="M' + (cx - r) + ' ' + cy + ' L' + (cx - r / 2) + ' ' + (cy - r * .87) + ' L' + (cx + r / 2) + ' ' + (cy - r * .87) + ' L' + (cx + r) + ' ' + cy + ' L' + (cx + r / 2) + ' ' + (cy + r * .87) + ' L' + (cx - r / 2) + ' ' + (cy + r * .87) + ' Z" fill="' + fill + '"/>';
+  reg('vieleckwurm', () =>
+    hex(10, 50, 6, '#3f9a5a') + hex(20, 46, 7, '#4fae6a') + hex(31, 44, 8, '#3f9a5a') + hex(42, 38, 8.5, '#4fae6a') +
+    hex(50, 26, 11, '#5fc07a') +
+    eye(46, 24, 2.6) + eye(55, 24, 2.6) +
+    '<path d="M46 31 Q50 34 55 31" fill="none" stroke-width="1.8" stroke-linecap="round"/>' +
+    '<path d="M46 16 L43 8 M54 16 L57 8" stroke-width="2" stroke-linecap="round"/><circle cx="43" cy="7" r="2" fill="#f2c94c"/><circle cx="57" cy="7" r="2" fill="#f2c94c"/>');
+
+  // Elite: Golem aus Bauplänen
+  reg('grundriss', () =>
+    '<rect x="16" y="50" width="12" height="11" rx="1" fill="#2c5aa0"/><rect x="36" y="50" width="12" height="11" rx="1" fill="#2c5aa0"/>' +
+    '<rect x="2" y="22" width="11" height="26" rx="2" fill="#3a6fc0"/><rect x="51" y="22" width="11" height="26" rx="2" fill="#3a6fc0"/>' +
+    '<path d="M11 18 L53 18 L53 52 L11 52 Z" fill="#3a6fc0"/>' +
+    '<path d="M11 30 L53 30 M11 41 L53 41 M22 18 L22 52 M32 18 L32 52 M42 18 L42 52" stroke="#a9ccff" stroke-width=".8"/>' +
+    '<path d="M16 24 L28 24 L28 36 L40 36 L40 47 L16 47 Z" fill="none" stroke="#fff" stroke-width="2"/>' +
+    '<rect x="21" y="3" width="22" height="15" rx="2" fill="#3a6fc0"/>' +
+    '<rect x="24" y="8" width="16" height="5" rx="1" fill="#16243e"/>' +
+    '<circle cx="28.5" cy="10.5" r="1.8" fill="#ffcf7a" stroke="none"/><circle cx="35.5" cy="10.5" r="1.8" fill="#ffcf7a" stroke="none"/>');
+
+  // Boss: Polygon-Chimäre – Dreieckskopf, Trapezflügel, Rechteckkörper
+  reg('chimaere', () =>
+    '<path d="M24 26 L4 8 L2 30 L18 34 Z" fill="#4f86d6"/><path d="M40 26 L60 8 L62 30 L46 34 Z" fill="#4f86d6"/>' +
+    '<path d="M6 14 L14 28 M58 14 L50 28" stroke="#a9ccff" stroke-width="1.5"/>' +
+    tube('M48 50 Q60 52 58 40', '#e0703c', 3) + '<path d="M55 38 L61 34 L60 42 Z" fill="#f2c94c"/>' +
+    '<rect x="16" y="52" width="9" height="10" rx="2" fill="#7a3a8a"/><rect x="39" y="52" width="9" height="10" rx="2" fill="#7a3a8a"/>' +
+    '<rect x="14" y="30" width="36" height="24" rx="3" fill="#9a4fb0"/>' +
+    '<path d="M14 42 L50 42" stroke="#c98ae0" stroke-width="1.5"/>' +
+    '<path d="M32 2 L46 26 L18 26 Z" fill="#5cc98a"/>' +
+    eye(28, 18, 2.4, '#ffe066') + eye(36, 18, 2.4, '#ffe066') +
+    '<path d="M27 23 L30 21 L32 23 L34 21 L37 23" fill="none" stroke-width="1.5"/>' +
+    '<path d="M2 46 L8 40 L14 46 L8 52 Z" fill="#f2c94c"/>' + eye(8, 46, 1.6, '#fff'));
+
+  // ---------------- Ebene 3: Kammer der Prismen ----------------
+  // Würfel-Mimic: Würfel im Schrägbild, der zubeißt
+  reg('wuerfelmimic', () =>
+    '<path d="M12 22 L22 12 L56 12 L46 22 Z" fill="#e9e4d8"/>' +
+    '<path d="M46 22 L56 12 L56 46 L46 56 Z" fill="#c9c2b2"/>' +
+    '<path d="M12 22 L46 22 L46 56 L12 56 Z" fill="#f4f0e6"/>' +
+    '<path d="M12 34 L46 34 L46 44 L12 44 Z" fill="#7a1f2a"/>' +
+    '<path d="M14 34 L17 39 L20 34 L23 39 L26 34 L29 39 L32 34 L35 39 L38 34 L41 39 L44 34 M14 44 L17 40 L20 44 L23 40 L26 44 L29 40 L32 44 L35 40 L38 44 L41 40 L44 44" fill="#fff" stroke-width="1"/>' +
+    eye(22, 28, 2.4, '#ef6461') + eye(36, 28, 2.4, '#ef6461') +
+    '<circle cx="51" cy="24" r="2" fill="#1b1724" stroke="none"/><circle cx="51" cy="38" r="2" fill="#1b1724" stroke="none"/>' +
+    '<circle cx="29" cy="50" r="2" fill="#1b1724" stroke="none"/><circle cx="31" cy="17" r="2" fill="#1b1724" stroke="none"/><circle cx="41" cy="15" r="2" fill="#1b1724" stroke="none"/>');
+
+  // Leuchtendes Dreiecksprisma
+  reg('prismenkristall', () =>
+    '<path d="M20 60 L44 60 L38 54 L26 54 Z" fill="#5a4a7a"/>' +
+    '<path d="M22 54 L32 8 L42 54 Z" fill="#6ad6ff"/>' +
+    '<path d="M32 8 L50 16 L52 50 L42 54 Z" fill="#3aa0d0"/>' +
+    '<path d="M32 8 L42 54" stroke="#e6fbff" stroke-width="1.5"/>' +
+    '<path d="M26 20 L28 16" stroke="#fff" stroke-width="2" stroke-linecap="round"/>' +
+    eye(28, 34, 2.3, '#fff') + eye(36, 34, 2.3, '#fff') +
+    '<path d="M28 42 Q32 45 36 42" fill="none" stroke-width="1.6" stroke-linecap="round"/>' +
+    '<path d="M8 20 L12 24 M6 34 L11 34 M56 26 L60 22 M58 40 L62 42" stroke="#6ad6ff" stroke-width="2" stroke-linecap="round"/>');
+
+  // Elite: Lurch im Messbecher
+  reg('literlurch', () =>
+    '<path d="M12 14 L50 14 L48 60 L14 60 Z" fill="#cfe8ff" fill-opacity=".35"/>' +
+    '<path d="M13 32 L49 32 L48 60 L14 60 Z" fill="#3a8fd0" fill-opacity=".75"/>' +
+    '<path d="M50 20 Q60 22 58 34 Q56 42 49 42" fill="none" stroke-width="3"/>' +
+    '<path d="M16 22 L22 22 M16 32 L24 32 M16 42 L22 42 M16 52 L24 52" stroke="#fff" stroke-width="1.6"/>' +
+    txt(30, 22, 7, '#fff', '1 l') +
+    '<ellipse cx="32" cy="42" rx="11" ry="9" fill="#ef8a3a"/>' +
+    '<circle cx="27" cy="38" r="1.6" fill="#ffe0b0" stroke="none"/><circle cx="37" cy="46" r="1.6" fill="#ffe0b0" stroke="none"/>' +
+    '<path d="M21 34 Q32 22 43 34" fill="#ef8a3a"/>' +
+    eye(27, 32, 2.6, '#fff') + eye(37, 32, 2.6, '#fff') +
+    '<path d="M28 38 Q32 41 36 38" fill="none" stroke-width="1.6"/>' +
+    '<path d="M12 14 L50 14" stroke-width="2.5"/>');
+
+  // Boss: Prismenkoloss aus gestapelten Körpern
+  reg('koloss', () =>
+    '<path d="M14 62 L28 62 L26 50 L16 50 Z" fill="#6d7280"/><path d="M36 62 L50 62 L48 50 L38 50 Z" fill="#6d7280"/>' +
+    '<path d="M2 24 L10 20 L12 46 L4 50 Z" fill="#8a94a6"/><path d="M62 24 L54 20 L52 46 L60 50 Z" fill="#8a94a6"/>' +
+    '<path d="M12 22 L18 16 L50 16 L44 22 Z" fill="#b8c1cf"/>' +
+    '<path d="M44 22 L50 16 L50 46 L44 52 Z" fill="#7d8291"/>' +
+    '<path d="M12 22 L44 22 L44 52 L12 52 Z" fill="#9aa3b3"/>' +
+    '<path d="M18 30 L38 30 M18 38 L38 38 M18 46 L38 46" stroke="#6d7280" stroke-width="1.4"/>' +
+    '<path d="M22 34 L34 34 L28 26 Z" fill="#ffcf7a" stroke-width="1.2"/>' +
+    '<path d="M20 16 L30 2 L40 16 Z" fill="#b8c1cf"/><path d="M30 2 L36 0 L46 14 L40 16 Z" fill="#7d8291"/>' +
+    '<circle cx="26.5" cy="11" r="1.9" fill="#ef6461" stroke="none"/><circle cx="33.5" cy="11" r="1.9" fill="#ef6461" stroke="none"/>' +
+    txt(28, 49, 6, '#2a2533', 'V=G·h'));
+
   if (typeof Image !== 'undefined') RM.sprites.preload();
 })(window.RM);

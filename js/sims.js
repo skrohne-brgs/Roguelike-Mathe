@@ -224,8 +224,112 @@
     };
   }
 
-  const builders = { waage, flaeche, sort, einsetz };
-  const titles = { waage: '⚖️ An der Waage erklärt', flaeche: '🟦 Am Flächenmodell erklärt', sort: '🧺 Mit der Sortiermaschine erklärt', einsetz: '🎯 Mit der Einsetzmaschine erklärt' };
+  // ---------------- Zerlegen und Ergänzen: Parallelogramm, Dreieck, Trapez; Prisma aus Schichten ----------------
+  function zerlegen(sim) {
+    if (sim.kind === 'prisma') return prismaSim(sim);
+    const F = RM.fig, C = F.C, S = new F.Scene(), n = x => F.num(x);
+    let steps, apply;
+    const set = (el, sel, style) => el.querySelectorAll(sel).forEach(e => Object.assign(e.style, style));
+    if (sim.kind === 'parallelogramm') {
+      const { g, h, p } = sim;
+      S.poly([[p, 0], [g, 0], [g + p, h], [p, h]], { cls: 'rest' });
+      S.poly([[0, 0], [p, 0], [p, h]], { cls: 'cut', fill: C.fill2 });
+      S.line([p, 0], [p, h], { color: C.height, dash: true, cls: 'hl' });
+      S.label([0, 0], [g, 0], 'g = ' + n(g), -1).label([p, 0], [p, h], 'h = ' + n(h), -1, { color: C.height, cls: 'hl' });
+      S.svg(360, 220);
+      const dx = S.map([g, 0])[0] - S.map([0, 0])[0];
+      steps = [
+        'Ein Parallelogramm mit der Grundseite g = ' + n(g) + ' und der Höhe h = ' + n(h) + '.',
+        'Wir schneiden entlang der Höhe ein Dreieck ab.',
+        'Das Dreieck passt rechts genau in die Lücke: Es entsteht ein Rechteck.',
+        'Das Rechteck ist g = ' + n(g) + ' lang und h = ' + n(h) + ' hoch: A = g · h = ' + n(g * h) + '.'
+      ];
+      apply = (st, el) => {
+        set(el, '.hl', { opacity: st >= 1 ? 1 : 0 });
+        set(el, '.cut', { transform: st >= 2 ? 'translate(' + dx + 'px, 0)' : 'none', fill: st >= 1 ? C.accent : C.fill });
+      };
+    } else {
+      // Dreieck bzw. Trapez: eine gedrehte Kopie ergänzt die Figur zum Parallelogramm
+      const tri = sim.kind === 'dreieck';
+      const g = tri ? sim.g : sim.a + sim.c, h = sim.h;
+      const pts = tri ? [[0, 0], [sim.g, 0], [sim.p, h]] : [[0, 0], [sim.a, 0], [sim.p + sim.c, h], [sim.p, h]];
+      const B = pts[1], Cc = pts[2], M = [(B[0] + Cc[0]) / 2, (B[1] + Cc[1]) / 2];
+      const turned = pts.map(([x, y]) => [2 * M[0] - x, 2 * M[1] - y]);
+      S.poly(turned, { cls: 'ghost', fill: 'none', stroke: 'none' }); // nur für die Größe der Skizze
+      S.poly(pts, { cls: 'copy', fill: C.accent, opacity: 0.85 });
+      S.poly(pts);
+      S.label(pts[0], pts[1], (tri ? 'g = ' : 'a = ') + n(pts[1][0]), -1);
+      if (!tri) S.label(pts[3], pts[2], 'c = ' + n(sim.c), 1);
+      S.height(tri ? pts[2] : pts[3], pts[0], pts[1], 'h = ' + n(h), -1);
+      S.svg(360, 220);
+      const m = S.map(M);
+      steps = tri ? [
+        'Ein Dreieck mit der Grundseite g = ' + n(g) + ' und der Höhe h = ' + n(h) + '.',
+        'Wir drehen eine Kopie des Dreiecks um 180° um die Mitte der rechten Seite.',
+        'Beide Dreiecke zusammen ergeben ein Parallelogramm: A = g · h = ' + n(g * h) + '.',
+        'Das Dreieck ist genau die Hälfte davon: A = ½ · g · h = ' + n(g * h / 2) + '.'
+      ] : [
+        'Ein Trapez mit den parallelen Seiten a = ' + n(sim.a) + ', c = ' + n(sim.c) + ' und der Höhe h = ' + n(h) + '.',
+        'Wir drehen eine Kopie des Trapezes um 180° um die Mitte der rechten Seite.',
+        'Zusammen entsteht ein Parallelogramm mit der Grundseite a + c = ' + n(g) + ': A = ' + n(g) + ' · ' + n(h) + ' = ' + n(g * h) + '.',
+        'Das Trapez ist die Hälfte: A = (a + c) : 2 · h = ' + n(g * h / 2) + '.'
+      ];
+      apply = (st, el) => {
+        set(el, '.copy', { transformOrigin: m[0].toFixed(1) + 'px ' + m[1].toFixed(1) + 'px', transform: st >= 1 ? 'rotate(180deg)' : 'none', opacity: st >= 1 && st <= 2 ? 0.85 : st === 3 ? 0.25 : 0 });
+      };
+    }
+    const svg = S.svg(360, 220).replace('<svg ', '<svg class="geo" ');
+    return {
+      n: steps.length,
+      html: '<div class="stage">' + svg + '</div>',
+      render(step, el) {
+        apply(step, el);
+        if (step === steps.length - 1) fx.sfx.coin(); else if (step) fx.sfx.tick();
+        return steps[step];
+      }
+    };
+  }
+  // Volumen als gestapelte Schichten: V = G · h
+  function prismaSim(sim) {
+    const F = RM.fig, C = F.C, S = new F.Scene(), n = x => F.num(x);
+    const pts = sim.base, l = sim.l, k = 0.5 / Math.SQRT2, nb = pts.length; // Grundfläche gegen den Uhrzeigersinn
+    const off = j => pts.map(([x, y]) => [x + j * k, y + j * k]);
+    for (let j = l - 1; j >= 0; j--) {
+      const fr = off(j), bk = off(j + 1);
+      for (let i = 0; i < nb; i++) {
+        const a = fr[i], b = fr[(i + 1) % nb];
+        // Seitenfläche sichtbar, wenn ihre Außennormale nach hinten oben rechts zeigt (wie im Schrägbild)
+        if ((b[1] - a[1]) - (b[0] - a[0]) > 1e-9) S.poly([a, b, bk[(i + 1) % nb], bk[i]], { fill: C.side, w: 1.6, cls: 'layer L' + j });
+      }
+      S.poly(fr, { fill: j === 0 ? C.fill2 : C.fill, w: 1.6, cls: 'layer L' + j });
+    }
+    S.poly(off(0), { fill: C.accent, w: 2.5, cls: 'base' });
+    const svg = S.svg(360, 220).replace('<svg ', '<svg class="geo" ');
+    const steps = [
+      'Die Grundfläche hat den Flächeninhalt G = ' + n(sim.G) + ' cm².',
+      'Eine Schicht von 1 cm Dicke hat das Volumen G · 1 = ' + n(sim.G) + ' cm³.',
+      'Das Prisma besteht aus ' + l + ' solchen Schichten.',
+      'V = G · h = ' + n(sim.G) + ' · ' + l + ' = ' + n(sim.G * l) + ' cm³.'
+    ];
+    return {
+      n: steps.length,
+      html: '<div class="stage">' + svg + '</div>',
+      render(step, el) {
+        el.querySelectorAll('.layer').forEach(e => {
+          const j = +e.getAttribute('class').split(' L')[1];
+          const on = step >= 2 || (step === 1 && j === 0);
+          e.style.transitionDelay = step === 2 && !fx.isCalm() ? (j * 0.12) + 's' : '0s';
+          e.style.opacity = on ? 1 : 0;
+        });
+        el.querySelector('.base').style.opacity = step === 0 ? 1 : 0;
+        if (step === steps.length - 1) fx.sfx.coin(); else if (step) fx.sfx.tick();
+        return steps[step];
+      }
+    };
+  }
+
+  const builders = { waage, flaeche, sort, einsetz, zerlegen };
+  const titles = { waage: '⚖️ An der Waage erklärt', flaeche: '🟦 Am Flächenmodell erklärt', sort: '🧺 Mit der Sortiermaschine erklärt', einsetz: '🎯 Mit der Einsetzmaschine erklärt', zerlegen: '✂️ Durch Zerlegen erklärt' };
 
   // Baut die Simulation in ein Element ein; gibt eine Aufräumfunktion zurück
   RM.sims = {

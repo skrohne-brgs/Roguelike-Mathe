@@ -77,7 +77,7 @@ for (const topic of RM.topics) {
         const tag = `${id} d${d}: ${t.prompt.replace(/<[^>]+>/g, '').slice(0, 120)}`;
         assert(typeof t.prompt === 'string' && t.prompt.length > 10, tag + ' – Aufgabentext');
         assert(t.steps.length > 0, tag + ' – Lösungsweg');
-        assert(!/NaN|undefined|Infinity|\[object/.test(t.prompt + t.steps.join('') + (t.answerHtml || '')), tag + ' – kaputte Ausgabe');
+        assert(!/NaN|undefined|Infinity|\[object/.test(t.prompt + t.steps.join('') + (t.answerHtml || '') + (t.figure || '') + (t.figureSolution || '') + (t.choices || []).join('')), tag + ' – kaputte Ausgabe');
         if (t.input === 'choice') {
           assert(t.correct >= 0 && t.correct < t.choices.length, tag + ' – richtige Option');
           assert(t.choices.length >= 2, tag + ' – genug Optionen');
@@ -99,6 +99,55 @@ for (const topic of RM.topics) {
       assert(quest.title && quest.text && quest.self && quest.check.length, `${f.id}: Quest ${quest.title} vollständig`);
     }
   }
+}
+
+// ---------- Würfelnetze ----------
+{
+  // alle 35 freien Hexominos durch Anbauen erzeugen; genau 11 davon sind Würfelnetze
+  let shapes = new Map([[RM.fig.shapeKey([[0, 0]]), [[0, 0]]]]);
+  for (let n = 2; n <= 6; n++) {
+    const next = new Map();
+    for (const cells of shapes.values()) {
+      for (const [x, y] of cells) {
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          if (cells.some(c => c[0] === x + dx && c[1] === y + dy)) continue;
+          const c2 = cells.concat([[x + dx, y + dy]]);
+          next.set(RM.fig.shapeKey(c2), c2);
+        }
+      }
+    }
+    shapes = next;
+  }
+  assert(shapes.size === 35, 'Es gibt 35 Hexominos (gefunden: ' + shapes.size + ')');
+  const nets = [...shapes.values()].filter(c => RM.fig.isCubeNet(c));
+  assert(nets.length === 11, 'Genau 11 Würfelnetze (gefunden: ' + nets.length + ')');
+}
+
+// ---------- Nachweis-Codes ----------
+{
+  const C = RM.codes;
+  const tp = RM.getTopic('jg8-flaechen-koerper');
+  const code = C.make(tp.id, 1, 'S', 'Lea M.', '8b-herbst');
+  assert(/^FK2S-[A-Z2-9]{6}$/.test(code), 'Codeformat ' + code);
+  assert(!/[01ILO]/.test(code.slice(5)), 'keine verwechselbaren Zeichen');
+  let v = C.verify(code, 'leam', '8B-HERBST');
+  assert(v.ok && v.floor === 1 && v.stufe === 'S' && v.topic.id === tp.id, 'Code wird erkannt (Kürzel/Schlüssel normalisiert)');
+  assert(C.verify(code.toLowerCase().replace('-', ' '), 'LEA M', '8b herbst').ok, 'Kleinschreibung und Leerzeichen egal');
+  assert(!C.verify(code, 'tim', '8B-HERBST').ok, 'anderes Kürzel → ungültig');
+  assert(!C.verify(code, 'leam', '8C-HERBST').ok, 'anderer Schlüssel → ungültig');
+  assert(!C.verify(code.replace('2S', '2G'), 'leam', '8B-HERBST').ok, 'Gütestufe nicht fälschbar');
+  assert(!C.verify(code.replace('FK2', 'FK3'), 'leam', '8B-HERBST').ok, 'Ebene nicht fälschbar');
+  assert(!C.verify('FK9G-ABCDEF', 'leam', 'X').ok && !C.verify('Quatsch', 'leam', 'X').ok, 'unsinnige Codes');
+  assert(C.verify(C.make('jg7-terme-gleichungen', 2, 'G', 'tom', 'KEY'), 'tom', 'KEY').topic.id === 'jg7-terme-gleichungen', 'Codes auch für Jg. 7');
+  assert(C.normKuerzel('Jürgen Ö.') === 'juergenoe', 'Umlaute im Kürzel');
+  assert(C.stufeFor(0) === 'G' && C.stufeFor(1) === 'G' && C.stufeFor(2) === 'S' && C.stufeFor(3) === 'S' && C.stufeFor(4) === 'B', 'Gütestufen');
+  // verschiedene Schüler bekommen verschiedene Codes
+  const seen = new Set();
+  for (let i = 0; i < 2000; i++) seen.add(C.make(tp.id, 0, 'G', 'kind' + i, 'KEY'));
+  assert(seen.size === 2000, 'keine Code-Kollisionen bei 2000 Kürzeln');
+  const list = C.verifyList('leam; ' + code + ' FK1G-AAAAAA\n\ntim\t' + C.make(tp.id, 0, 'B', 'tim', '8B-HERBST'), '8B-HERBST');
+  assert(list.length === 2 && list[0].kuerzel === 'leam' && list[0].results.length === 2 && list[0].results[0].ok && !list[0].results[1].ok, 'Sammelprüfung Zeile 1');
+  assert(list[1].kuerzel === 'tim' && list[1].results[0].ok && list[1].results[0].stufe === 'B', 'Sammelprüfung Zeile 2');
 }
 
 // ---------- Dungeon-Erzeugung ----------

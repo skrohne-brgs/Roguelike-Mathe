@@ -8,6 +8,10 @@ window.RM.CONFIG = {
   // Bitte vor dem Einsatz ändern! (Kann zusätzlich im Lehrkraft-Bereich pro Gerät geändert werden.)
   lehrerPin: '2468',
 
+  // Geheimwort für die Nachweis-Codes im Hausaufgabenmodus. Bitte einmalig ändern (beliebiger Text)
+  // und danach nicht mehr – sonst passen bereits vergebene Codes nicht mehr.
+  codeGeheimwort: 'Pythagoras-Gewoelbe-2026',
+
   // Eigene analoge Quests. Sie werden zufällig zusätzlich zu den eingebauten Quests angeboten.
   // ebene: 'f1', 'f2', 'f3' oder 'alle'
   eigeneQuests: [
