@@ -82,24 +82,56 @@
   const svg = (id, f = 0) => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><g stroke="' + OUT + '" stroke-width="2" stroke-linejoin="round">' +
     (BODIES[id] || BODIES.abenteurer)(f) + '</g></svg>';
 
+  // Gemalte Bilder (Canva, assets/art). Fehlen sie oder ist „Grafik: einfach“ gewählt,
+  // werden die SVG-Figuren oben verwendet.
+  const ART_FIG = ['abenteurer', 'magier', 'ritter', 'haendler',
+    'fledermaus', 'ratte', 'skelett', 'schleim', 'mumie', 'termtroll',
+    'schlange', 'skorpion', 'geist', 'spinne', 'steinwaechter', 'hydra',
+    'kobold', 'spiegel', 'eule', 'wolf', 'waage', 'golem'];
+  const ART = {};
+  ART_FIG.forEach(id => { ART[id] = 'assets/art/fig/' + id + '.png'; });
+  const broken = {};
+  let painted = true;
+
   const urls = {}, imgs = {};
-  const url = (id, f = 0) => {
+  const svgUrl = (id, f) => {
     const k = id + f;
     return urls[k] || (urls[k] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg(id, f)));
   };
-  // Bild für Canvas (wird beim ersten Aufruf geladen)
+  const usesArt = id => painted && ART[id] && !broken[ART[id]];
+  const url = (id, f = 0) => (usesArt(id) ? ART[id] : svgUrl(id, f));
+  // Bild für Canvas (wird beim ersten Aufruf geladen; fällt bei Ladefehler auf SVG zurück)
   const image = (id, f = 0) => {
-    const k = id + f;
-    if (!imgs[k]) { imgs[k] = new Image(); imgs[k].src = url(id, f); }
+    const art = usesArt(id), k = (art ? 'a:' + id : id + f);
+    if (!imgs[k]) {
+      const im = imgs[k] = new Image();
+      if (art) im.onerror = () => { broken[ART[id]] = true; delete imgs[k]; };
+      im.src = art ? ART[id] : svgUrl(id, f);
+    }
     return imgs[k];
+  };
+  // weitere gemalte Bilder (Objekte, Texturen) über ihren Pfad
+  const file = path => {
+    if (!painted || broken[path]) return null;
+    const k = 'f:' + path;
+    if (!imgs[k]) { const im = imgs[k] = new Image(); im.onerror = () => { broken[path] = true; }; im.src = path; }
+    const im = imgs[k];
+    return im.complete && im.naturalWidth ? im : null;
   };
 
   RM.sprites = {
     // weitere Figuren (z. B. Gegner) anmelden: register(id, frame => '<svg-Inhalt>')
     register: (id, fn) => { BODIES[id] = fn; },
-    has: id => !!BODIES[id],
-    svg, url, image,
-    html: (id, size, cls = '') => '<img class="sprite ' + cls + '" src="' + url(id) + '" width="' + size + '" height="' + size + '" alt="">',
-    preload: () => Object.keys(BODIES).forEach(id => { image(id, 0); image(id, 1); })
+    // gemaltes Bild für eine Figur anmelden: art(id, 'assets/art/fig/x.png')
+    art: (id, path) => { ART[id] = path; },
+    has: id => !!BODIES[id] || !!ART[id],
+    painted: id => usesArt(id),
+    configure: o => { if (o && 'painted' in o) painted = !!o.painted; },
+    svg, url, image, file,
+    html: (id, size, cls = '') => '<img class="sprite ' + (usesArt(id) ? 'art ' : '') + cls + '" src="' + url(id) + '" width="' + size + '" height="' + size + '" alt="">',
+    preload: () => {
+      Object.keys(BODIES).forEach(id => { image(id, 0); image(id, 1); });
+      Object.keys(ART).forEach(id => image(id, 0));
+    }
   };
 })(window.RM);

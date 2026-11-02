@@ -51,7 +51,9 @@ Pro Gerät gibt es **drei Spielstände**, z. B. für mehrere Schüler an einem K
 
 ## Grafik, Animationen und Klänge
 
-- **Eigene Figuren:** Spielfiguren und alle 18 Gegner sind als Vektorgrafik gezeichnet (`js/sprites.js`, `js/monsters.js`). Es gibt keine externen Bilddateien. Die Spielfiguren tragen Helm bzw. Kapuze und sind dadurch neutral. Viele Gegner tragen ein Mathe-Detail, z. B. das x auf der Fledermaus, das ± auf dem Geist oder das leuchtende Gleichheitszeichen des Golems.
+- **Gemalte Grafik:** Spielfiguren, alle 18 Gegner, Objekte (Truhe, Händler, Lagerfeuer, Altar, Quest-Brett, Schatzkarte, Treppe, Tür, Boss-Tor) sowie Boden- und Wandtexturen sind mit Canva erzeugte Bilder (`assets/art/fig`, `assets/art/obj`, `assets/art/tex`). Sie liegen im Projekt, das Spiel bleibt offline lauffähig.
+- **Einfache Grafik:** Im Lehrkraft-Bereich lässt sich unter „Grafik“ auf **Einfach** umschalten. Dann erscheinen die gezeichneten Vektorfiguren (`js/sprites.js`, `js/monsters.js`) mit einfarbigen Böden, z. B. für ältere Geräte oder eine ruhigere Darstellung. Fehlt ein Bild, nutzt das Spiel automatisch die Vektorfigur.
+- **Neutrale Figuren:** Die Spielfiguren tragen Helm bzw. Kapuze. Viele Gegner tragen ein Mathe-Detail, z. B. das x auf der Fledermaus, das ± auf dem Geist oder das Gleichheitszeichen des Golems.
 
 - **Karte:** Jede Ebene hat ihre eigene Kulisse:
   - Katakomben mit Fackeln

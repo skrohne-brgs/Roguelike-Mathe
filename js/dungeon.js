@@ -16,6 +16,17 @@
     turm: { floor: ['#675a8f', '#6f6298'], wall: '#110e20', top: '#262040', edge: '#ddd0ff', void: '#07081a', light: 'rgba(255, 240, 200, ', stars: true }
   };
   const EMO = { shop: '🛒', fire: '🔥', altar: '❓', board: '📜', chest: '🧰', map: '🗺️', stairs: '🪜' };
+  const ART = 'assets/art/';
+  const art = name => RM.sprites && RM.sprites.file ? RM.sprites.file(ART + name + '.png') : null;
+  // Textur als Muster, das mit der Kamera mitwandert (eine Textur = 3 Felder)
+  function pattern(ctx, key, file, ts, cam) {
+    const img = art(file);
+    if (!img) return null;
+    V.pats = V.pats || {};
+    const p = V.pats[key] || (V.pats[key] = ctx.createPattern(img, 'repeat'));
+    if (p && p.setTransform && typeof DOMMatrix !== 'undefined') p.setTransform(new DOMMatrix().translate(-cam.x, -cam.y).scale(ts * 3 / img.naturalWidth));
+    return p;
+  }
   const SOLID = new Set(['monster', 'elite', 'boss', 'shop', 'fire', 'altar', 'board']);
 
   // ================= Erzeugung =================
@@ -168,7 +179,7 @@
       '<span></span><button data-d="0,1" aria-label="nach unten">▼</button><span></span></div><div class="dlog" id="dlog" aria-live="polite"></div></div>';
     const cv = root.querySelector('#dview'), mini = root.querySelector('#dmini');
     V = {
-      root, S, hooks, theme, cv, ctx: cv.getContext('2d'), mini, mctx: mini.getContext('2d'), hero: opts.hero,
+      root, S, hooks, theme, themeId: THEMES[opts.theme] ? opts.theme : 'katakomben', cv, ctx: cv.getContext('2d'), mini, mctx: mini.getContext('2d'), hero: opts.hero,
       heroId: opts.heroId, face: 1,
       zoom: RM.clamp(opts.zoom, 0, ZOOMS.length - 1), path: [], walkTimer: null, busy: false, raf: 0,
       px: S.hero.x * BASE, py: S.hero.y * BASE, cam: { x: 0, y: 0 }, vw: 0, vh: 0, bursts: [], visible: new Uint8Array(W * H),
@@ -461,6 +472,9 @@
     const y0 = Math.max(0, Math.floor(cam.y / ts)), y1 = Math.min(H - 1, Math.ceil((cam.y + V.vh) / ts));
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    const floorPat = pattern(ctx, 'floor', 'tex/boden-' + V.themeId, ts, cam);
+    const wallPat = pattern(ctx, 'wall', 'tex/wand', ts, cam);
+    const doorImg = art('obj/door'), gateImg = art('obj/gate');
     const open = (xx, yy) => xx >= 0 && yy >= 0 && xx < W && yy < H && S.tiles[idx(xx, yy)] !== WALL && S.explored[idx(xx, yy)];
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const i = idx(x, y);
@@ -471,6 +485,7 @@
         for (let dy = -1; dy <= 1 && !edge; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < W && yy < H && S.tiles[idx(xx, yy)] !== WALL) { edge = true; break; } }
         if (!edge) continue;
         ctx.fillStyle = theme.wall; ctx.fillRect(sx, sy, ts, ts);
+        if (wallPat) { ctx.globalAlpha = .7; ctx.fillStyle = wallPat; ctx.fillRect(sx, sy, ts, ts); ctx.globalAlpha = 1; }
         if (y + 1 < H && S.tiles[idx(x, y + 1)] !== WALL) { ctx.fillStyle = theme.top; ctx.fillRect(sx, sy + ts * .68, ts, ts * .32); }
         if (theme.torch && hash(x, y) % 11 === 0 && y + 1 < H && S.tiles[idx(x, y + 1)] === FLOOR) {
           const f = calm ? 1 : 1 + .12 * Math.sin(t * 9 + x) + .07 * Math.sin(t * 23 + y);
@@ -485,11 +500,20 @@
         }
         if (theme.stars && hash(x, y) % 9 === 0) { ctx.fillStyle = 'rgba(255, 255, 255, ' + (calm ? .6 : .3 + .5 * Math.abs(Math.sin(t * 1.3 + y))) + ')'; ctx.fillRect(sx + (hash(x, y) % 30) / 38 * ts, sy + (hash(y, x) % 20) / 38 * ts, 2, 2); }
       } else {
-        ctx.fillStyle = theme.floor[(x + y) % 2]; ctx.fillRect(sx, sy, ts, ts);
+        ctx.fillStyle = floorPat || theme.floor[(x + y) % 2]; ctx.fillRect(sx, sy, ts, ts);
         ctx.strokeStyle = 'rgba(0, 0, 0, .22)'; ctx.strokeRect(sx + .5, sy + .5, ts - 1, ts - 1);
-        if (hash(x, y) % 7 === 0) { ctx.fillStyle = 'rgba(255, 255, 255, .06)'; ctx.fillRect(sx + ts * .16, sy + ts * .2, ts * .26, ts * .16); }
-        if (tile === DOOR) { ctx.font = (ts * .8) + 'px serif'; ctx.fillText('🚪', sx + ts / 2, sy + ts / 2 + 2); }
-        if (tile === GATE) { ctx.fillStyle = '#5c1f2a'; ctx.fillRect(sx + 3, sy + 3, ts - 6, ts - 6); ctx.font = (ts * .72) + 'px serif'; ctx.fillText('⛩️', sx + ts / 2, sy + ts / 2 + 2); }
+        if (!floorPat && hash(x, y) % 7 === 0) { ctx.fillStyle = 'rgba(255, 255, 255, .06)'; ctx.fillRect(sx + ts * .16, sy + ts * .2, ts * .26, ts * .16); }
+        if (tile === DOOR) {
+          if (doorImg) ctx.drawImage(doorImg, sx - ts * .05, sy - ts * .1, ts * 1.1, ts * 1.1);
+          else { ctx.font = (ts * .8) + 'px serif'; ctx.fillText('🚪', sx + ts / 2, sy + ts / 2 + 2); }
+        }
+        if (tile === GATE) {
+          if (gateImg) {
+            const glow = calm ? .5 : .4 + .25 * Math.sin(t * 3);
+            ctx.fillStyle = 'rgba(255, 60, 60, ' + glow + ')'; ctx.fillRect(sx, sy, ts, ts);
+            ctx.drawImage(gateImg, sx - ts * .1, sy - ts * .15, ts * 1.2, ts * 1.2);
+          } else { ctx.fillStyle = '#5c1f2a'; ctx.fillRect(sx + 3, sy + 3, ts - 6, ts - 6); ctx.font = (ts * .72) + 'px serif'; ctx.fillText('⛩️', sx + ts / 2, sy + ts / 2 + 2); }
+        }
       }
       if (!vis) { ctx.fillStyle = 'rgba(8, 6, 12, .45)'; ctx.fillRect(sx, sy, ts, ts); }
       if (tile === WALL) {
@@ -518,8 +542,12 @@
       ctx.fillStyle = mob ? 'rgba(60, 10, 20, .55)' : 'rgba(10, 8, 16, .5)';
       ctx.beginPath(); ctx.arc(sx + ts / 2, sy + ts / 2, ts * (e.type === 'boss' ? .55 : .42), 0, 7); ctx.fill();
       ctx.globalAlpha = e.used ? .35 : (V.visible[i] ? 1 : .6);
+      const obj = !mob && EMO[e.type] ? art('obj/' + e.type) : null;
       const img = e.sprite && RM.sprites.has(e.sprite) ? RM.sprites.image(e.sprite) : null;
-      if (img && img.complete && img.naturalWidth) {
+      if (obj) {
+        const sz = ts * (e.type === 'stairs' ? 1 : e.type === 'chest' || e.type === 'map' ? 1 : 1.2);
+        ctx.drawImage(obj, sx + ts / 2 - sz / 2, sy + ts / 2 - sz / 2 - (e.type === 'stairs' ? 0 : ts * .08), sz, sz);
+      } else if (img && img.complete && img.naturalWidth) {
         const sz = ts * (e.type === 'boss' ? 1.5 : e.type === 'elite' ? 1.15 : 1);
         ctx.drawImage(img, sx + ts / 2 - sz / 2, sy + ts / 2 - sz / 2 + bob, sz, sz);
       } else {
@@ -538,7 +566,9 @@
     const img = RM.sprites && RM.sprites.has(V.heroId) ? RM.sprites.image(V.heroId, moving && !calm ? Math.floor(now / 140) % 2 : 0) : null;
     if (img && img.complete && img.naturalWidth) {
       ctx.save(); ctx.translate(hx, hy); ctx.scale(V.face, 1);
-      ctx.drawImage(img, -ts * .62, -ts * .8, ts * 1.24, ts * 1.24);
+      // gemalte Figur hat nur ein Bild: beim Laufen leicht hüpfen
+      const hop = RM.sprites.painted(V.heroId) && moving && !calm ? Math.abs(Math.sin(now / 90)) * ts * .08 : 0;
+      ctx.drawImage(img, -ts * .62, -ts * .8 - hop, ts * 1.24, ts * 1.24);
       ctx.restore();
     } else {
       ctx.font = (ts * .85) + 'px serif';

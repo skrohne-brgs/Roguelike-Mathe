@@ -6,13 +6,14 @@
   const $app = () => document.getElementById('app');
 
   // ================= Speicher =================
-  const DEFAULT_SETTINGS = { zeitdruck: 'moderat', zeitfaktor: 1, schwierigkeit: 'normal', quests: true, alleKlassen: false, pin: '', klang: false, bewegung: 'normal', kartenart: 'dungeon', monsterMin: 5, gross: false, dzoom: null };
+  const DEFAULT_SETTINGS = { zeitdruck: 'moderat', zeitfaktor: 1, schwierigkeit: 'normal', quests: true, alleKlassen: false, pin: '', klang: false, bewegung: 'normal', kartenart: 'dungeon', monsterMin: 5, gross: false, dzoom: null, grafik: 'gemalt' };
   const settings = () => Object.assign({}, DEFAULT_SETTINGS, RM.store.get('rm.settings', {}));
   const saveSettings = s => RM.store.set('rm.settings', s);
   const teacherPin = () => settings().pin || RM.CONFIG.lehrerPin;
   const applyFx = () => {
     const s = settings();
     RM.fx.configure({ sound: s.klang, reduced: s.bewegung === 'reduziert' });
+    RM.sprites.configure({ painted: s.grafik !== 'einfach' });
     document.documentElement.classList.toggle('gross', !!s.gross);
   };
   const sfx = RM.fx.sfx;
@@ -1414,6 +1415,7 @@
       '<div class="setting"><div><b>Bewegung</b><small>„Reduziert“ schaltet Animationen weitgehend ab, z. B. bei Reizempfindlichkeit. Gilt automatisch, wenn das Gerät „Bewegung reduzieren“ nutzt.</small></div><div class="segs">' + opt('bewegung', 'normal', 'Normal') + opt('bewegung', 'reduziert', 'Reduziert') + '</div></div>' +
       '<div class="setting"><div><b>Kartenart</b><small>Freier Dungeon zum Erkunden oder Pfadkarte mit Feldern. Gilt ab dem nächsten Abenteuer.</small></div><div class="segs">' + opt('kartenart', 'dungeon', 'Freier Dungeon') + opt('kartenart', 'pfad', 'Pfadkarte') + '</div></div>' +
       '<div class="setting"><div><b>Monster bis zum Boss-Tor</b><small>So viele Monster müssen im Dungeon besiegt sein, bevor sich das Tor zum Boss öffnet. Gilt ab der nächsten Ebene.</small></div><div class="segs">' + [3, 4, 5, 6, 8].map(n => opt('monsterMin', n, String(n))).join('') + '</div></div>' +
+      '<div class="setting"><div><b>Grafik</b><small>„Gemalt“: Figuren, Objekte und Böden als gemalte Bilder. „Einfach“: klare Vektorfiguren mit einfarbigen Böden, z. B. für ältere Geräte oder wenn es ruhiger wirken soll.</small></div><div class="segs">' + opt('grafik', 'gemalt', 'Gemalt') + opt('grafik', 'einfach', 'Einfach') + '</div></div>' +
       '<div class="setting"><div><b>Große Darstellung</b><small>Größere Schrift, Tasten und Dungeon-Felder auf diesem Gerät, z. B. bei Sehschwäche.</small></div><div class="segs">' + opt('gross', true, 'An') + opt('gross', false, 'Aus') + '</div></div>' +
       '<div class="setting"><div><b>Alle Charaktere freischalten</b></div><div class="segs">' + opt('alleKlassen', true, 'An') + opt('alleKlassen', false, 'Aus') + '</div></div>' +
       '<div class="setting"><div><b>PIN für dieses Gerät ändern</b><small>Standard-PIN steht in js/config.js.</small></div><div class="segs"><input id="newPin" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="neue PIN"><button class="btn small" data-act="setPin">Speichern</button></div></div>' +

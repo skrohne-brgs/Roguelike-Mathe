@@ -494,3 +494,6 @@ html.calm *, html.calm *::before, html.calm *::after { animation-duration: .01ms
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* gemalte Figuren (assets/art): weicher Schatten für Kontrast auf jedem Hintergrund */
+.sprite.art { filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .55)); object-fit: contain; }
