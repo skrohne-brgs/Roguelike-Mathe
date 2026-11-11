@@ -91,6 +91,8 @@
   const ART = {};
   ART_FIG.forEach(id => { ART[id] = 'assets/art/fig/' + id + '.png'; });
   const broken = {};
+  // In der Einzeldatei-Version liegen die Bilder eingebettet in RM.ASSET_DATA (Pfad → data-URL).
+  const src = p => (RM.ASSET_DATA && RM.ASSET_DATA[p]) || p;
   let painted = true;
 
   const urls = {}, imgs = {};
@@ -99,14 +101,14 @@
     return urls[k] || (urls[k] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg(id, f)));
   };
   const usesArt = id => painted && ART[id] && !broken[ART[id]];
-  const url = (id, f = 0) => (usesArt(id) ? ART[id] : svgUrl(id, f));
+  const url = (id, f = 0) => (usesArt(id) ? src(ART[id]) : svgUrl(id, f));
   // Bild für Canvas (wird beim ersten Aufruf geladen; fällt bei Ladefehler auf SVG zurück)
   const image = (id, f = 0) => {
     const art = usesArt(id), k = (art ? 'a:' + id : id + f);
     if (!imgs[k]) {
       const im = imgs[k] = new Image();
       if (art) im.onerror = () => { broken[ART[id]] = true; delete imgs[k]; };
-      im.src = art ? ART[id] : svgUrl(id, f);
+      im.src = art ? src(ART[id]) : svgUrl(id, f);
     }
     return imgs[k];
   };
@@ -114,7 +116,7 @@
   const file = path => {
     if (!painted || broken[path]) return null;
     const k = 'f:' + path;
-    if (!imgs[k]) { const im = imgs[k] = new Image(); im.onerror = () => { broken[path] = true; }; im.src = path; }
+    if (!imgs[k]) { const im = imgs[k] = new Image(); im.onerror = () => { broken[path] = true; }; im.src = src(path); }
     const im = imgs[k];
     return im.complete && im.naturalWidth ? im : null;
   };

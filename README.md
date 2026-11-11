@@ -231,6 +231,10 @@ Das Spiel besteht nur aus statischen Dateien (HTML, CSS, JavaScript). Es braucht
 - **GitHub Pages:** In diesem Repository unter *Settings → Pages* den Branch auswählen (Datenschutzhinweis oben beachten).
 - **Laptops ohne Internet:** den Ordner kopieren und `index.html` öffnen.
 
+### Als einzelne HTML-Datei
+
+`python3 tools/einzeldatei.py` baut die Datei `gewoelbe-des-pythagoras.html` (ca. 2,5 MB). Darin sind CSS, JavaScript und alle Bilder eingebettet. Die Datei läuft per Doppelklick offline, lässt sich per Mail oder Schulcloud weitergeben und kann einzeln auf einen Webspace hochgeladen werden. Die Einstellungen aus `js/config.js` (PIN, Geheimwort, `spielLink`) werden beim Bauen übernommen.
+
 ### QR-Code zum Mitspielen
 
 Auf der Startseite öffnet **📱 QR-Code zum Mitspielen** einen QR-Code. Er zeigt immer auf die Adresse, unter der das Spiel gerade geöffnet ist. So geht es im Unterricht:
