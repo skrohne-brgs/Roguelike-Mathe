@@ -526,3 +526,13 @@ html.calm .sim svg.geo * { transition: none !important; }
 
 /* gemalte Figuren (assets/art): weicher Schatten für Kontrast auf jedem Hintergrund */
 .sprite.art { filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .55)); object-fit: contain; }
+
+/* ---------- QR-Code zum Mitspielen ---------- */
+.qr-box { background: #fff; color: #111; border-radius: var(--radius); padding: 18px; margin: 14px auto; max-width: 360px; text-align: center; }
+.qr-box .qr { display: block; width: 100%; height: auto; }
+.qr-url { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95rem; word-break: break-all; margin-top: 8px; color: #222; }
+.qr-box.big { position: fixed; inset: 0; z-index: 100; max-width: none; margin: 0; border-radius: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: zoom-out; }
+.qr-box.big .qr { width: auto; height: min(80vh, 92vw); }
+.qr-box.big .qr-url { font-size: clamp(1rem, 2.6vw, 2rem); }
+.hint.warn { background: #3d2f22; border-left-color: var(--accent); }
+.row.center { justify-content: center; }

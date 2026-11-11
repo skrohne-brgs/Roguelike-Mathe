@@ -12,6 +12,12 @@ window.RM.CONFIG = {
   // und danach nicht mehr – sonst passen bereits vergebene Codes nicht mehr.
   codeGeheimwort: 'Pythagoras-Gewoelbe-2026',
 
+  // Link, auf den der QR-Code auf der Startseite verweist.
+  // Leer lassen: Es wird automatisch die Adresse verwendet, unter der das Spiel gerade geöffnet ist.
+  // Nur nötig, wenn diese Adresse für Schülergeräte nicht erreichbar ist (z. B. interner Server).
+  // Beispiel: spielLink: 'https://www.meine-schule.de/mathe/gewoelbe/',
+  spielLink: '',
+
   // Eigene analoge Quests. Sie werden zufällig zusätzlich zu den eingebauten Quests angeboten.
   // ebene: 'f1', 'f2', 'f3' oder 'alle'
   eigeneQuests: [

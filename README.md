@@ -230,6 +230,20 @@ Das Spiel besteht nur aus statischen Dateien (HTML, CSS, JavaScript). Es braucht
 - **GitHub Pages:** In diesem Repository unter *Settings → Pages* den Branch auswählen (Datenschutzhinweis oben beachten).
 - **Laptops ohne Internet:** den Ordner kopieren und `index.html` öffnen.
 
+### QR-Code zum Mitspielen
+
+Auf der Startseite öffnet **📱 QR-Code zum Mitspielen** einen QR-Code. Er zeigt immer auf die Adresse, unter der das Spiel gerade geöffnet ist. So geht es im Unterricht:
+
+1. Die Lehrkraft öffnet das Spiel auf dem eigenen Gerät.
+2. Sie zeigt den QR-Code über **Groß anzeigen (Beamer)** an.
+3. Die Schülerinnen und Schüler scannen ihn mit der iPad-Kamera.
+
+**Andere Kolleginnen und Kollegen** laden den Spielordner auf ihren eigenen Webspace. Der QR-Code zeigt dann automatisch auf deren Adresse, es muss nichts angepasst werden.
+
+- **Datenschutz:** Der Code wird auf dem Gerät selbst erzeugt (Bibliothek `js/vendor/qrcode.js`, MIT-Lizenz). Es werden keine Daten an fremde Dienste gesendet.
+- **Als Datei geöffnet** (`file://`) oder unter `localhost`: Das Spiel zeigt einen Hinweis, denn andere Geräte erreichen diese Adresse nicht.
+- **Feste Adresse:** Soll der QR-Code auf eine andere Adresse zeigen, tragen Sie in `js/config.js` unter `spielLink` den gewünschten Link ein. Das ist z. B. bei einem internen Server sinnvoll.
+
 ## Neue Themen ergänzen (z. B. Zuordnungen, Prozentrechnung)
 
 1. Eine neue Datei `js/topics/<thema>.js` nach dem Vorbild von `jg7-terme-gleichungen.js` anlegen:

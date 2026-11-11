@@ -216,6 +216,7 @@
       '<button class="btn ghost" data-act="go" data-to="progress">📊 Mein Lernstand</button>' +
       ((m.codes || []).length ? '<button class="btn ghost" data-act="go" data-to="codes">🔐 Meine Nachweis-Codes</button>' : '') +
       '<button class="btn ghost" data-act="go" data-to="help">❔ Spielanleitung</button>' +
+      '<button class="btn ghost" data-act="go" data-to="share">📱 QR-Code zum Mitspielen</button>' +
       '<div class="row"><button class="btn ghost small" data-act="toggleSound">' + soundLabel() + '</button>' +
       '<button class="btn ghost small" data-act="teacherLogin">🔑 Lehrkraft</button></div>' +
       '</div>' +
@@ -223,6 +224,63 @@
       '</section>';
   };
   A.go = d => show(d.to);
+
+  // ================= QR-Code zum Teilen =================
+  // Verweist auf die Adresse, unter der das Spiel gerade läuft (oder auf CONFIG.spielLink).
+  // Der Code wird auf dem Gerät erzeugt – es werden keine Daten an fremde Dienste gesendet.
+  const shareUrl = () => {
+    const fix = (RM.CONFIG.spielLink || '').trim();
+    if (fix) return fix;
+    const l = window.location;
+    return l.protocol === 'file:' ? l.href.split(/[?#]/)[0] : l.origin + l.pathname;
+  };
+  const shareProblem = url => {
+    if (/^file:/i.test(url)) return 'Das Spiel ist gerade als Datei auf diesem Gerät geöffnet. Andere Geräte können diese Adresse nicht aufrufen. Laden Sie den Spielordner auf einen Webspace (z. B. Schul-Homepage) und öffnen Sie ihn dort – dann zeigt der QR-Code automatisch auf diese Adresse.';
+    if (/^https?:\/\/(localhost|127\.|\[::1\])/i.test(url)) return 'Diese Adresse (localhost) gilt nur für dieses Gerät. Für Schülergeräte bitte die Netzwerk-Adresse oder einen Webspace verwenden.';
+    if (!/^https?:/i.test(url)) return 'Diese Adresse lässt sich von anderen Geräten vermutlich nicht öffnen. Tragen Sie in js/config.js unter spielLink den richtigen Link ein.';
+    return '';
+  };
+  function qrSvg(text) {
+    if (typeof qrcode === 'undefined') return '';
+    qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+    const qr = qrcode(0, 'M');
+    qr.addData(text, 'Byte');
+    qr.make();
+    const n = qr.getModuleCount(), q = 4, size = n + 2 * q;
+    let d = '';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += 'M' + (c + q) + ' ' + (r + q) + 'h1v1h-1z';
+    return '<svg class="qr" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="QR-Code: ' + esc(text) + '" shape-rendering="crispEdges">' +
+      '<rect width="' + size + '" height="' + size + '" fill="#fff"/><path d="' + d + '" fill="#000"/></svg>';
+  }
+  screens.share = () => {
+    const url = shareUrl(), problem = shareProblem(url);
+    return '<section class="screen narrow share-view"><h2>📱 Mitspielen per QR-Code</h2>' +
+      '<p class="muted center">Mit der Kamera scannen – das Spiel öffnet sich direkt im Browser.</p>' +
+      '<div class="qr-box" id="qrBox" data-act="qrBig" title="Tippen: groß anzeigen">' + qrSvg(url) + '<div class="qr-url">' + esc(url) + '</div></div>' +
+      (problem ? '<div class="hint warn">⚠️ ' + esc(problem) + '</div>' : '') +
+      '<div class="row center"><button class="btn" data-act="qrBig">🔍 Groß anzeigen (Beamer)</button>' +
+      '<button class="btn ghost" data-act="copyLink">📋 Link kopieren</button></div>' +
+      '<p class="muted center"><small>Jedes Gerät speichert seine Spielstände nur für sich. Der Code wird auf diesem Gerät erzeugt, es werden keine Daten übertragen.</small></p>' +
+      '<div class="row"><button class="btn big" data-act="go" data-to="title">Zurück</button></div></section>';
+  };
+  A.qrBig = () => {
+    const box = document.getElementById('qrBox');
+    if (!box) return;
+    const on = !box.classList.contains('big');
+    box.classList.toggle('big', on);
+    if (on && box.requestFullscreen) box.requestFullscreen().catch(() => {});
+    else if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  };
+  document.addEventListener('fullscreenchange', () => {
+    const box = document.getElementById('qrBox');
+    if (box && !document.fullscreenElement) box.classList.remove('big');
+  });
+  A.copyLink = () => {
+    const url = shareUrl();
+    const done = () => toast('Link kopiert.', 'good');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, () => toast(esc(url)));
+    else toast(esc(url));
+  };
 
   function slotCard(r, i) {
     const head = '<div class="slot-head"><span class="slot-no">Spielstand ' + (i + 1) + '</span>';
