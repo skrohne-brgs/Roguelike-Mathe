@@ -199,7 +199,8 @@ Die Zuordnung orientiert sich am Kerncurriculum Mathematik für das Gymnasium (S
 | | Sachaufgaben (Aquarium, Geschenkbox, Zelt, Zimmer streichen, Graben, Verpackung) | Modellieren | II–III |
 
 - Alle Aufgaben haben eine **Skizze**: beschriftete Flächen mit eingezeichneter Höhe und rechtem Winkel sowie Schrägbilder mit verdeckten Kanten gestrichelt.
-- Ergebnisse werden als Zahl eingegeben, die Einheit steht neben dem Eingabefeld. Dezimalzahlen gehen mit Komma.
+- **Nur ganze Zahlen:** Alle Angaben, Zwischenergebnisse und Lösungen sind ganzzahlig, damit das Kopfrechnen nicht an Kommazahlen hängt. Auch ½ · g · h und (a + c) : 2 gehen immer glatt auf. Ein automatischer Test prüft das für alle Aufgabentypen.
+- Ergebnisse werden als Zahl eingegeben, die Einheit steht neben dem Eingabefeld.
 - Schräge Seiten werden nur dort angegeben, wo die Längen ganzzahlig sind. Pythagoras ist dafür nicht nötig.
 - **Kreis und Zylinder** sind bewusst nicht enthalten, da sie nach dem Kerncurriculum in den Doppeljahrgang 9/10 gehören.
 - Die Zuordnung orientiert sich an den inhaltsbezogenen Kompetenzbereichen „Größen und Messen“ und „Raum und Form“. Bitte mit dem schuleigenen Arbeitsplan abgleichen.

@@ -78,6 +78,10 @@ for (const topic of RM.topics) {
         assert(typeof t.prompt === 'string' && t.prompt.length > 10, tag + ' – Aufgabentext');
         assert(t.steps.length > 0, tag + ' – Lösungsweg');
         assert(!/NaN|undefined|Infinity|\[object/.test(t.prompt + t.steps.join('') + (t.answerHtml || '') + (t.figure || '') + (t.figureSolution || '') + (t.choices || []).join('')), tag + ' – kaputte Ausgabe');
+        // nur ganze Zahlen: keine Kommazahlen in Text, Lösungsweg, Antworten (Skizzen-Koordinaten ausgenommen)
+        const txt = (t.prompt + t.steps.join(' ') + (t.answerHtml || '') + (t.choices || []).join(' ') + ' ' + (t.solutionInput || ''))
+          .replace(/<svg[\s\S]*?<\/svg>/g, ' ').replace(/<[^>]+>/g, ' ');
+        assert(!/\d[,.]\d/.test(txt), tag + ' – Kommazahl: ' + (txt.match(/.{0,30}\d[,.]\d.{0,20}/) || [''])[0]);
         if (t.input === 'choice') {
           assert(t.correct >= 0 && t.correct < t.choices.length, tag + ' – richtige Option');
           assert(t.choices.length >= 2, tag + ' – genug Optionen');

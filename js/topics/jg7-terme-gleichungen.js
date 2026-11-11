@@ -440,6 +440,8 @@
         const A = errorAt === 1 ? a + c : a - c;
         const D = errorAt === 2 ? dd + b : dd - b;
         const X = errorAt === 3 ? new Q(D - A) : new Q(D, A);
+        // nur ganze Zahlen – auch in der fehlerhaften Rechnung
+        if (A === 0 || D % A !== 0) return this.gen(d);
         // Fehler muss sichtbar sein (z. B. 4 − 2 = 4 : 2)
         if (errorAt === 3 && X.eq(new Q(D, A))) return this.gen(d);
         const lines = [

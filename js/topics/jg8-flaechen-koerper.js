@@ -13,7 +13,8 @@
   const Z = x => fmt(ds(x));                                   // Zahl im Text
   const ZU = (x, u) => Z(x) + '&nbsp;' + u;                    // Zahl mit Einheit im Text
   const L = (x, u = 'cm') => F.num(x) + ' ' + u;               // Beschriftung in der Skizze
-  const half = () => R.int(3, 19) + 0.5;                       // Dezimalzahl mit ,5
+  // Alle Angaben, Zwischenergebnisse und Lösungen sind ganze Zahlen (Kopfrechnen ohne Kommazahlen).
+  const even = (x, y) => ((x * y) % 2 === 0);                  // ½ · x · y ist ganzzahlig
   const step = (html, note) => T.step(html, note);
   const mid = (p1, p2) => [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
   const eq = (s, u) => fmt(s) + (u ? '&nbsp;' + u : '');
@@ -164,11 +165,11 @@
         let i, j, v;
         if (d === 1) { i = R.int(1, 3); j = i - 1; v = R.int(2, 40); }                       // eine Stufe kleiner
         else if (d === 2) {
-          if (R.chance(0.5)) { i = R.int(0, 2); j = i + 1; v = R.int(11, 99) * 10 + R.pick([0, 5]); } // eine Stufe größer
+          if (R.chance(0.5)) { i = R.int(0, 2); j = i + 1; v = R.int(2, 60) * 100; }                  // eine Stufe größer
           else { i = R.int(2, 3); j = i - 2; v = R.int(2, 9); }                                // zwei Stufen kleiner
         } else {
-          if (R.chance(0.5)) { i = R.int(3, 5); j = i + 1 > 6 ? i - 1 : i + 1; v = i < j ? R.int(12, 95) * 100 : half(); }
-          else { i = R.int(4, 5); j = i - 2; v = R.pick([1.5, 2.5, 0.8, 3.2, 0.25, 1.75]); }
+          if (R.chance(0.5)) { i = R.int(3, 5); j = i + 1 > 6 ? i - 1 : i + 1; v = i < j ? R.int(2, 40) * 100 : R.int(2, 40); }
+          else { i = R.int(4, 5); j = i - 2; v = R.int(2, 9); }
         }
         const f = Math.pow(100, i - j), res = v * f;
         const nameBetween = 'zwischen benachbarten Flächeneinheiten 100 (' + FL.slice(Math.min(i, j), Math.max(i, j) + 1).join(' → ') + ')';
@@ -185,7 +186,7 @@
       kc: 'Größen und Messen', pk: 'Mit symbolischen, formalen und technischen Elementen umgehen', afb: 'I',
       gen(d) {
         let a = R.int(3, 15), b = R.int(2, 12);
-        if (d === 2) a = half();
+        if (d === 2) { a = R.int(11, 19); b = R.int(3, 9); }
         const kind = d === 3 ? R.pick(['seite', 'quadrat', 'seiteU']) : R.pick(['A', 'u']);
         if (kind === 'A' || kind === 'u') {
           const isA = kind === 'A';
@@ -230,11 +231,12 @@
       gen(d) {
         let g, h, p, o = {};
         if (d === 1) { g = R.int(2, 9) * 2; h = R.int(3, 12); p = Math.round(g * (0.25 + Math.random() * 0.5)); }
-        else if (d === 2) { g = R.int(4, 14); h = R.chance(0.5) ? half() : R.int(3, 13); p = R.chance(0.5) ? g + R.int(2, 4) : -R.int(2, 4); }
+        else if (d === 2) { g = R.int(4, 14); h = R.int(3, 13); if (!even(g, h)) g++; p = R.chance(0.5) ? g + R.int(2, 4) : -R.int(2, 4); }
         else {
           // mit überflüssiger Seitenlänge als Ablenkung
           const [pp, hh, s] = R.pick(TRIPEL);
           h = hh; p = pp; g = pp + R.int(3, 10);
+          if (!even(g, h)) g++;
           o.left = L(s);
           o.right = null;
         }
@@ -253,7 +255,7 @@
       kc: 'Größen und Messen', pk: 'Mit symbolischen, formalen und technischen Elementen umgehen', afb: 'I–II',
       gen(d) {
         let g = R.int(4, 14), h = R.int(3, 10), off = R.int(2, 4), o = {};
-        if (d === 2) { if (R.chance(0.5)) g = half(); else h = half(); }
+        if (d === 2) { g = R.int(11, 20); h = R.int(4, 12); }
         if (d === 3) { const [oo, hh, s] = R.pick(TRIPEL); off = oo; h = hh; g = oo + R.int(4, 10); o.side = L(s); }
         return geoTask({
           prompt: 'Berechne den Flächeninhalt des Parallelogramms.', figure: paraFig(g, h, off, o).svg(), value: g * h, unit: 'cm²', time: [45, 60, 70][d - 1],
@@ -270,7 +272,7 @@
       gen(d) {
         let c = R.int(3, 9), a = c + R.int(2, 6) * 2, h = R.int(3, 9), off = (a - c) / 2, o = {};
         if (d === 1 && R.chance(0.5)) off = 0;                                  // rechtwinkliges Trapez
-        if (d === 2) { h = R.chance(0.5) ? half() : R.int(4, 11); off = R.int(0, a - c); a += R.pick([0, 1]); }
+        if (d === 2) { off = R.int(0, a - c); a += R.pick([0, 2]); h = R.int(4, 11); }   // a + c gerade: Mittelwert ganzzahlig
         if (d === 3) { const k = R.pick([1, 2]); h = 4 * k; off = 3 * k; a = c + 6 * k; o.legs = [L(5 * k), L(5 * k)]; }
         return geoTask({
           prompt: 'Berechne den Flächeninhalt des Trapezes.', figure: trapFig(a, c, h, off, o).svg(), value: (a + c) / 2 * h, unit: 'cm²', time: [60, 75, 80][d - 1],
@@ -508,7 +510,7 @@
           }[err];
           pool = ['seite', 'halb', 'einheit', 'rechen', 'richtig'];
         } else if (kind === 'para') {
-          const [off, h, s] = R.pick(TRIPEL), g = off + R.int(4, 9);
+          const [off, h, s] = R.pick(TRIPEL), g0 = off + R.int(4, 9), g = g0 % 2 ? g0 + 1 : g0; // gerade: auch „falsch halbiert“ bleibt ganzzahlig
           fig = paraFig(g, h, off, { side: L(s) });
           err = R.pick(['seite', 'halb', 'einheit', 'richtig']);
           right = g * h;
@@ -591,8 +593,8 @@
         const U = { 'mm³': -3, 'cm³': 0, 'ml': 0, 'dm³': 3, 'l': 3, 'm³': 6, 'hl': 5 };
         let from, to, v;
         if (d === 1) { [from, to] = R.pick([['dm³', 'cm³'], ['m³', 'dm³'], ['l', 'ml'], ['cm³', 'mm³'], ['l', 'cm³'], ['m³', 'l']]); v = R.int(2, 12); }
-        else if (d === 2) { [from, to] = R.pick([['cm³', 'dm³'], ['ml', 'l'], ['dm³', 'm³'], ['cm³', 'l']]); v = R.int(11, 95) * 50; }
-        else { [from, to] = R.pick([['m³', 'l'], ['hl', 'l'], ['l', 'm³'], ['dm³', 'ml'], ['m³', 'cm³']]); v = U[from] > U[to] ? R.pick([0.5, 1.2, 2.5, 0.75, 3.4, 0.08]) : R.int(12, 95) * 100; }
+        else if (d === 2) { [from, to] = R.pick([['cm³', 'dm³'], ['ml', 'l'], ['dm³', 'm³'], ['cm³', 'l']]); v = R.int(2, 40) * 1000; }
+        else { [from, to] = R.pick([['m³', 'l'], ['hl', 'l'], ['l', 'm³'], ['dm³', 'ml'], ['m³', 'cm³']]); v = U[from] > U[to] ? R.int(2, 12) : R.int(2, 40) * 1000; }
         const f = Math.pow(10, U[from] - U[to]), res = v * f;
         return geoTask({
           prompt: 'Rechne um: ' + ZU(v, from) + ' = ? ' + to, value: res, unit: to, time: [30, 45, 60][d - 1],
@@ -673,7 +675,7 @@
         const pick = d === 1 ? ['aquarium', 'geschenk'] : d === 2 ? ['zelt', 'zimmer', 'aquarium'] : ['graben', 'riegel', 'zimmer'];
         const kind = R.pick(pick);
         if (kind === 'aquarium') {
-          const a = R.int(4, 10) * 10, b = R.int(2, 5) * 10, h = R.int(3, 6) * 10, f = d === 1 ? h : h - R.int(1, 2) * 5;
+          const a = R.int(4, 10) * 10, b = R.int(2, 5) * 10, h = R.int(3, 6) * 10, f = d === 1 ? h : h - R.int(1, 2) * 10;
           const V = a * b * f / 1000;
           return geoTask({
             prompt: 'Ein quaderförmiges Aquarium ist innen ' + ZU(a, 'cm') + ' lang, ' + ZU(b, 'cm') + ' breit und ' + ZU(h, 'cm') + ' hoch. ' +
@@ -693,7 +695,7 @@
           });
         }
         if (kind === 'zelt') {
-          const g = R.int(2, 4) * 1, h = R.pick([1.5, 2, 2.5]), l = R.int(2, 5);
+          const g = R.pick([2, 4]), h = R.int(2, 3), l = R.int(2, 5);
           const V = g * h / 2 * l;
           return geoTask({
             prompt: 'Ein Zelt hat die Form eines dreiseitigen Prismas. Vorne ist es ' + ZU(g, 'm') + ' breit und ' + ZU(h, 'm') + ' hoch, es ist ' + ZU(l, 'm') + ' lang. Wie groß ist das Luftvolumen im Zelt?',
@@ -704,7 +706,7 @@
           });
         }
         if (kind === 'zimmer') {
-          const a = R.int(3, 6), b = R.int(3, 5), h = R.pick([2.5, 3]), tuer = 2, M = 2 * (a + b) * h - tuer;
+          const a = R.int(3, 6), b = R.int(3, 5), h = 3, tuer = 2, M = 2 * (a + b) * h - tuer;
           return geoTask({
             prompt: 'Ein quaderförmiges Zimmer ist ' + ZU(a, 'm') + ' lang, ' + ZU(b, 'm') + ' breit und ' + ZU(h, 'm') + ' hoch. Die vier Wände sollen gestrichen werden, die Tür (' + ZU(tuer, 'm²') + ') nicht. Fenster gibt es nicht. Wie groß ist die Fläche, die gestrichen wird?',
             value: M, unit: 'm²', time: 110,
@@ -713,7 +715,7 @@
           });
         }
         if (kind === 'graben') {
-          const a = R.int(2, 4), c = R.pick([1, 1.5, 2].filter(x => x < a)), h = R.pick([0.5, 1, 1.5]), l = R.int(2, 10) * 10;
+          const a = R.int(3, 6), c = a - 2, h = R.int(1, 2), l = R.int(2, 10) * 10;   // a + c gerade: Mittelwert ganzzahlig
           const G = (a + c) / 2 * h, V = G * l;
           return geoTask({
             prompt: 'Ein ' + ZU(l, 'm') + ' langer Graben hat einen trapezförmigen Querschnitt: oben ' + ZU(a, 'm') + ' breit, unten ' + ZU(c, 'm') + ' breit und ' + ZU(h, 'm') + ' tief. Wie viel m³ Erde wurden ausgehoben?',
@@ -722,15 +724,15 @@
             steps: [step('Querschnitt (Trapez): ' + fmt('G = [(' + a + ' + ' + ds(c) + ')/2] * ' + ds(h) + ' = ' + ds(G)) + '&nbsp;m²'), step(fmt('V = ' + ds(G) + ' * ' + l + ' = ' + ds(V)) + '&nbsp;m³')]
           });
         }
-        // Schokoriegel in dreiseitiger Prisma-Packung (gleichseitiges Dreieck mit gerundeter Höhe)
-        const s = R.pick([3, 4, 5]), hs = { 3: 2.6, 4: 3.5, 5: 4.3 }[s], l = R.int(15, 25);
-        const G = s * hs / 2, O = 2 * G + 3 * s * l;
+        // Schokoriegel in dreiseitiger Prisma-Packung (gleichschenkliges Dreieck mit ganzzahligen Maßen)
+        const k = R.pick([1, 2]), s = 6 * k, sch = 5 * k, hs = 4 * k, l = R.int(15, 25);
+        const G = s * hs / 2, u = s + 2 * sch, O = 2 * G + u * l;
         return geoTask({
-          prompt: 'Die Verpackung eines Schokoriegels ist ein dreiseitiges Prisma. Die Grundfläche ist ein gleichseitiges Dreieck mit der Seitenlänge ' + ZU(s, 'cm') + ' und der Höhe ' + ZU(hs, 'cm') + '. Die Packung ist ' + ZU(l, 'cm') + ' lang. Wie viel Karton braucht man (ohne Klebelaschen)?',
-          figure: F.prism([[0, 0], [s, 0], [s / 2, hs]], l * 0.6, { labels: { 0: L(s) }, depth: L(l), extra: (S, f) => S.height(f[2], f[0], f[1], L(hs), 1) }).svg(360, 220),
+          prompt: 'Die Verpackung eines Schokoriegels ist ein dreiseitiges Prisma. Die Grundfläche ist ein gleichschenkliges Dreieck: Grundseite ' + ZU(s, 'cm') + ', Schenkel je ' + ZU(sch, 'cm') + ', Höhe ' + ZU(hs, 'cm') + '. Die Packung ist ' + ZU(l, 'cm') + ' lang. Wie viel Karton braucht man (ohne Klebelaschen)?',
+          figure: F.prism([[0, 0], [s, 0], [s / 2, hs]], l * 0.6, { labels: { 0: L(s), 1: L(sch) }, depth: L(l), extra: (S, f) => S.height(f[2], f[0], f[1], L(hs), 1) }).svg(360, 220),
           value: O, unit: 'cm²', time: 130,
-          hint: 'O = 2 · G + M. Der Mantel besteht aus drei gleichen Rechtecken.',
-          steps: [step('Grundfläche: ' + fmt('G = [1/2] * ' + s + ' * ' + ds(hs) + ' = ' + ds(G)) + '&nbsp;cm²'), step('Mantel: ' + fmt('3 * ' + s + ' * ' + l + ' = ' + 3 * s * l) + '&nbsp;cm²'), step(fmt('O = 2 * ' + ds(G) + ' + ' + 3 * s * l + ' = ' + ds(O)) + '&nbsp;cm²')]
+          hint: 'O = 2 · G + M. Der Mantel ist ein Rechteck: Umfang des Dreiecks mal Länge der Packung.',
+          steps: [step('Grundfläche: ' + fmt('G = [1/2] * ' + s + ' * ' + hs + ' = ' + G) + '&nbsp;cm²'), step('Umfang: ' + fmt(s + ' + 2 * ' + sch + ' = ' + u) + '&nbsp;cm'), step('Mantel: ' + fmt(u + ' * ' + l + ' = ' + u * l) + '&nbsp;cm²'), step(fmt('O = 2 * ' + G + ' + ' + u * l + ' = ' + O) + '&nbsp;cm²')]
         });
       }
     }
